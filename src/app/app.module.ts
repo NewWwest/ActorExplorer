@@ -3,14 +3,20 @@ import { NgModule } from '@angular/core';
 
 import { AppComponent } from './app.component';
 import { ActorNetworkComponent } from './actor-network/actor-network.component';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { MatGridListModule } from '@angular/material/grid-list';
+import { ActorSidePanelComponent } from './actor-side-panel/actor-side-panel.component'; 
 
 @NgModule({
   declarations: [
     AppComponent,
-    ActorNetworkComponent
+    ActorNetworkComponent,
+    ActorSidePanelComponent,
   ],
   imports: [
-    BrowserModule
+    BrowserModule,
+    BrowserAnimationsModule,
+    MatGridListModule
   ],
   providers: [],
   bootstrap: [AppComponent]

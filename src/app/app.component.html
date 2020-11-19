@@ -1,4 +1,13 @@
 <div>
-    ActionExplorer
-    <app-actor-network></app-actor-network>
+    <div style="background-color: pink;">
+        TopPanel TODO
+    </div>
+    <mat-grid-list class="main-dashboard" cols="5">
+        <mat-grid-tile colspan="4">
+            <app-actor-network></app-actor-network>
+        </mat-grid-tile>
+        <mat-grid-tile class="side-panel-container">
+            <app-actor-side-panel></app-actor-side-panel>
+        </mat-grid-tile>
+    </mat-grid-list>
 </div>

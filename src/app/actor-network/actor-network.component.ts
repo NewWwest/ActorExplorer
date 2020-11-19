@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
 import { SimulationNodeDatum } from 'd3';
 import { ActorRepository } from '../actor.repository';
+import { ActorService } from '../actor.service';
 import { Actor } from '../models/actor';
 import { Movie } from '../models/movie';
 
@@ -19,10 +20,14 @@ export class ActorNetworkComponent implements OnInit {
   private nodeColor = 'lime';
   private nodeHoverColor = 'green'
   private margin = { top: 10, right: 30, bottom: 30, left: 40 };
-  private svg;
+  private svg = null;
   private width = 750
   private height = 400
-  constructor(private _actorRepository: ActorRepository) { }
+
+
+  constructor(private _actorRepository: ActorRepository,
+    private _actorService: ActorService
+    ) { }
 
   ngOnInit(): void {
     let result = this._actorRepository.getAllActorsAndovies();
@@ -52,7 +57,7 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   private createSvg(): void {
-    var svg = d3.select("#graph-container")
+    this.svg = d3.select("#graph-container")
       .append("svg")
       .attr("width", this.width + this.margin.left + this.margin.right)
       .attr("height", this.height + this.margin.top + this.margin.bottom)
@@ -61,42 +66,6 @@ export class ActorNetworkComponent implements OnInit {
       .attr("transform",
         "translate(" + this.margin.left + "," + this.margin.top + ")");
   }
-  // private drawBars(data: any[]): void {
-  //   // Create the X-axis band scale
-  //   const x = d3.scaleBand()
-  //     .range([0, this.width])
-  //     .domain(data.map(d => d.Framework))
-  //     .padding(0.2);
-
-  //   // Draw the X-axis on the DOM
-  //   this.svg.append("g")
-  //     .attr("transform", "translate(0," + this.height + ")")
-  //     .call(d3.axisBottom(x))
-  //     .selectAll("text")
-  //     .attr("transform", "translate(-10,0)rotate(-45)")
-  //     .style("text-anchor", "end");
-
-  //   // Create the Y-axis band scale
-  //   const y = d3.scaleLinear()
-  //     .domain([0, 200000])
-  //     .range([this.height, 0]);
-
-  //   // Draw the Y-axis on the DOM
-  //   this.svg.append("g")
-  //     .call(d3.axisLeft(y));
-
-  //   // Create and fill the bars
-  //   this.svg.selectAll("bars")
-  //     .data(data)
-  //     .enter()
-  //     .append("rect")
-  //     .attr("x", d => x(d.Framework))
-  //     .attr("y", d => y(d.Stars))
-  //     .attr("width", x.bandwidth())
-  //     .attr("height", (d) => this.height - y(d.Stars))
-  //     .attr("fill", "#d04a35");
-  // }
-
 
   createForceNetwork() {
     let simulation = d3.forceSimulation(this.nodes)
@@ -105,7 +74,7 @@ export class ActorNetworkComponent implements OnInit {
       )
       .force("charge", d3.forceManyBody().strength(-50))
       .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-      .on("tick", this.updateNetwork);
+      .on("tick", this.updateNetwork.bind(this));
 
     var edgeEnter = d3.select("svg").selectAll("g.edge")
       .data(this.edges)
@@ -127,19 +96,17 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke-width", "8px")
       .style("stroke", "#66CCCC")
       .style("opacity", 0)
-      .on("dblclick", this.deleteEdge)
       .on("mouseover", this.edgeOver)
       .on("mouseout", this.edgeOut);
 
     var nodeEnter = d3.select("svg").selectAll("g.node")
-      .data(this.nodes, (d: ActorNode) => {console.log(d.actor.id);  return d.actor.id})
+      .data(this.nodes, (d: ActorNode) => { return d.actor.id})
       .enter()
       .append("g")
       .attr("class", "node")
-      .on("click", this.expandNode)
-      .on("dblclick", this.deleteNode)
-      .on("mouseover", this.nodeOver)
-      .on("mouseout", this.nodeOut);
+      .on("click", this.expandNode.bind(this))
+      .on("mouseover", this.nodeOver.bind(this))
+      .on("mouseout", this.nodeOut.bind(this));
     // .call(force.drag());
 
     nodeEnter.append("circle")
@@ -155,19 +122,21 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke-opacity", 0.75)
       .style("stroke", "white")
       .style("font-size", "8px")
-      .text((d) => (<any>d).name)
+      .text((d) => (<any>d).actor.name)
       .style("pointer-events", "none")
 
     nodeEnter.append("text")
       .style("text-anchor", "middle")
       .attr("y", 2)
       .style("font-size", "8px")
-      .text((d) => (<any>d).name)
+      .text((d) => (<any>d).actor.name)
       .style("pointer-events", "none")
   }
 
   expandNode(e) {
-    console.log(e)
+    let actorId = e.target.__data__.actor.id;
+    let actor = this.actors.find(a=>a.id==actorId);
+    this._actorService.triggerActorSelectedHandlers(actor);
     // var currentNodes = d3.selectAll("g.node").data();
     // var currentEdges = d3.selectAll("g.edge").data();
     // var edgesToNode = AvailableEdges.filter((p) => p.source.id == e.id || p.target.id == e.id);
@@ -202,64 +171,24 @@ export class ActorNetworkComponent implements OnInit {
     // this.createForceNetwork(currentNodes, currentEdges)
   }
 
-  nodeOver(d) {
-    console.log(d)
-    d3.selectAll("circle")
-      .filter((n: any) => n.id == d.id)
-      .style("fill", this.nodeHoverColor)
-      .style("stroke", this.nodeHoverColor)
-      .style("stroke-width", "3px");
+  nodeOver(evt) {
+    evt.target.style['fill']=this.nodeHoverColor;
+    evt.target.style['stroke']=this.nodeHoverColor;
+    evt.target.style['stroke-width']='3px';
   }
 
-  nodeOut(d) {
-    d3.selectAll("circle")
-      .filter((n: any) => n.id == d.id)
-      .style("fill", this.nodeColor)
-      .style("stroke", "black")
-      .style("stroke-width", "1px");
+  nodeOut(evt) {
+    evt.target.style['fill']=this.nodeColor;
+    evt.target.style['stroke']='black';
+    evt.target.style['stroke-width']='1px';
   }
 
-  deleteNode(d) {
-    var currentNodes = d3.selectAll("g.node").data();
-    var currentEdges = d3.selectAll("g.edge").data();
-    var filteredNodes = currentNodes.filter(function (p: any) { return p.id != d.id });
-    var filteredEdges = currentEdges.filter(function (p: any) { return p.source.id != d.id && p.target.id != d.id });
-    d3.select("svg").selectAll("g.edge").data(filteredEdges, (d: any) => d.id).enter()
-    d3.select("svg").selectAll("g.node").data(filteredNodes, (d: any) => d.id).enter()
-    d3.selectAll("g.node").data(filteredNodes, (x: any) => x.id)
-      .exit()
-      .transition()
-      .duration(500)
-      .style("opacity", 0)
-      .remove();
-    d3.selectAll("g.edge").data(filteredEdges, (x: any) => x.id)
-      .exit()
-      .transition()
-      .duration(500)
-      .style("opacity", 0)
-      .remove();
+  edgeOver(evt) {
+    evt.target.style.opacity='0.75'
   }
 
-  deleteEdge(d) {
-    var currentEdges = d3.selectAll("g.edge").data();
-    var filteredEdges = currentEdges.filter((l) => !this.isSameEdge(l, d));
-    d3.select("svg").selectAll("g.edge").data(filteredEdges, (d: any) => d.id).enter()
-
-    d3.selectAll("g.edge").data(filteredEdges, (x: any) => x.id)
-      .exit()
-      .transition()
-      .duration(500)
-      .style("opacity", 0)
-      .remove();
-  }
-
-  edgeOver(d) {
-    console.log(d)
-    // d3.select(this).style("opacity", 0.75);
-  }
-
-  edgeOut() {
-    d3.selectAll("line.highlight").style("opacity", 0);
+  edgeOut(evt) {
+    evt.target.style.opacity='0'
   }
 
   updateNetwork() {
@@ -275,7 +204,7 @@ export class ActorNetworkComponent implements OnInit {
       });
 
     d3.select("svg").selectAll("g.node > circle")
-        .attr("r", (d) => 10); //node radius
+        .attr("r", (d) => this.nodeRadius);
 
   }
 
@@ -289,5 +218,40 @@ interface ActorNode extends d3.SimulationNodeDatum {
   actor: Actor;
 }
 interface MovieLink extends d3.SimulationLinkDatum<SimulationNodeDatum> {
-
+  
 }
+
+
+  // deleteNode(d) {
+  //   var currentNodes = d3.selectAll("g.node").data();
+  //   var currentEdges = d3.selectAll("g.edge").data();
+  //   var filteredNodes = currentNodes.filter(function (p: any) { return p.id != d.id });
+  //   var filteredEdges = currentEdges.filter(function (p: any) { return p.source.id != d.id && p.target.id != d.id });
+  //   d3.select("svg").selectAll("g.edge").data(filteredEdges, (d: any) => d.id).enter()
+  //   d3.select("svg").selectAll("g.node").data(filteredNodes, (d: any) => d.id).enter()
+  //   d3.selectAll("g.node").data(filteredNodes, (x: any) => x.id)
+  //     .exit()
+  //     .transition()
+  //     .duration(500)
+  //     .style("opacity", 0)
+  //     .remove();
+  //   d3.selectAll("g.edge").data(filteredEdges, (x: any) => x.id)
+  //     .exit()
+  //     .transition()
+  //     .duration(500)
+  //     .style("opacity", 0)
+  //     .remove();
+  // }
+
+  // deleteEdge(d) {
+  //   var currentEdges = d3.selectAll("g.edge").data();
+  //   var filteredEdges = currentEdges.filter((l) => !this.isSameEdge(l, d));
+  //   d3.select("svg").selectAll("g.edge").data(filteredEdges, (d: any) => d.id).enter()
+
+  //   d3.selectAll("g.edge").data(filteredEdges, (x: any) => x.id)
+  //     .exit()
+  //     .transition()
+  //     .duration(500)
+  //     .style("opacity", 0)
+  //     .remove();
+  // }
