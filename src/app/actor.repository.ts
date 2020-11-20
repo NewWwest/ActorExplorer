@@ -1,17 +1,19 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, OnInit } from '@angular/core';
+import { Observable } from 'rxjs/internal/Observable';
 import { Actor } from './models/actor';
 import { Movie } from './models/movie';
 
 @Injectable({
     providedIn: 'root',
 })
-export class ActorRepository implements OnInit {
-    constructor() { }
+export class ActorRepository {
+    constructor(private _http: HttpClient) { }
 
-    ngOnInit(): void {
-        //todo: load data?
+    getWills(): Observable<Actor> {
+        return this._http.get<Actor>("http://localhost:4201/api/actor/name/will")
     }
-
+    
     public getAllActorsAndovies(): [Actor[], Movie[]] {
         return <any>this.generateTestData(100, 10, 0.1);
     }

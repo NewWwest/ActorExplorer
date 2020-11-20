@@ -36,6 +36,15 @@ export class ActorNetworkComponent implements OnInit {
     this.createSvg();
     this.importData(this.actors, this.movies);
     this.createForceNetwork();
+    this.fetchWillData();
+  }
+
+  fetchWillData() {
+    this._actorRepository.getWills().subscribe((data)=>{
+      console.log(data);
+    }, (err)=>{
+      console.error(err)
+    })
   }
 
   importData(actors: Actor[], movies: Movie[]) {
