@@ -13,14 +13,16 @@ export class ActorRepository {
     getWills(): Observable<Actor> {
         return this._http.get<Actor>("http://localhost:4201/api/actor/name/will")
     }
-    
+
     public getAllActorsAndovies(): [Actor[], Movie[]] {
         return <any>this.generateTestData(100, 10, 0.1);
     }
 
-
-
-
+    getMovieListbetweenActors(actorId1: string, actorId2: string, movies: Movie[]): Movie[] {
+        return movies.filter(movie =>
+            movie.actors.filter(a => a.id == actorId1 || a.id == actorId2).length == 2
+        );
+    }
 
     generateTestData(actorCount: number, movieCount: number, linkProbability: number) {
         let actors = [];

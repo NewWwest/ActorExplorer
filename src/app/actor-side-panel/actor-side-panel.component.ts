@@ -5,7 +5,7 @@ import { Actor } from '../models/actor';
 @Component({
   selector: 'app-actor-side-panel',
   templateUrl: './actor-side-panel.component.html',
-  styleUrls: ['./actor-side-panel.component.scss']
+  styleUrls: ['./actor-side-panel.component.css']
 })
 export class ActorSidePanelComponent implements OnInit {
   actor:Actor = null;

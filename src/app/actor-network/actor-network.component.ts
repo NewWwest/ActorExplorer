@@ -9,71 +9,72 @@ import { Movie } from '../models/movie';
 @Component({
   selector: 'app-actor-network',
   templateUrl: './actor-network.component.html',
-  styleUrls: ['./actor-network.component.scss']
+  styleUrls: ['./actor-network.component.css']
 })
 export class ActorNetworkComponent implements OnInit {
   actors: Actor[] = [];
   movies: Movie[] = [];
   nodes: ActorNode[] = [];
   edges: MovieLink[] = [];
+
+  edgeTooltip: any = null;
+  svg: any = null;
+
   private nodeRadius = 10;
   private nodeColor = 'lime';
   private nodeHoverColor = 'green'
-  private margin = { top: 10, right: 30, bottom: 30, left: 40 };
-  private svg = null;
-  private width = 750
-  private height = 400
 
+  private width = 1500
+  private height = 900
 
   constructor(private _actorRepository: ActorRepository,
     private _actorService: ActorService
-    ) { }
+  ) { }
 
   ngOnInit(): void {
+    this.edgeTooltip = d3.select("#edge-tooltip")
     let result = this._actorRepository.getAllActorsAndovies();
     this.actors = result[0]
     this.movies = result[1]
-    this.createSvg();
+    this.sizeSvg();
     this.importData(this.actors, this.movies);
     this.createForceNetwork();
     this.fetchWillData();
   }
 
   fetchWillData() {
-    this._actorRepository.getWills().subscribe((data)=>{
+    this._actorRepository.getWills().subscribe((data) => {
       console.log(data);
-    }, (err)=>{
+    }, (err) => {
       console.error(err)
     })
   }
 
   importData(actors: Actor[], movies: Movie[]) {
     actors.forEach(actor => {
-      this.nodes.push(<ActorNode>{actor: actor});
+      this.nodes.push(<ActorNode>{ actor: actor });
     });
     movies.forEach(movie => {
-      for(let i = 0; i< movie.actors.length; i++){
-        for(let j=i+1; j<movie.actors.length;j++){
-          let a1 = this.nodes.find((a)=>a.actor.id==movie.actors[i].id);
-          let a2 = this.nodes.find((a)=>a.actor.id==movie.actors[j].id);
+      for (let i = 0; i < movie.actors.length; i++) {
+        for (let j = i + 1; j < movie.actors.length; j++) {
+          let a1 = this.nodes.find((a) => a.actor.id == movie.actors[i].id);
+          let a2 = this.nodes.find((a) => a.actor.id == movie.actors[j].id);
           this.edges.push(<MovieLink>{
-              source: a1,
-              target:a2
+            width: Math.ceil(Math.random() * 3), //TODO: calculate this
+            source: a1,
+            target: a2
           })
         }
       }
     });
   }
 
-  private createSvg(): void {
-    this.svg = d3.select("#graph-container")
-      .append("svg")
-      .attr("width", this.width + this.margin.left + this.margin.right)
-      .attr("height", this.height + this.margin.top + this.margin.bottom)
+  private sizeSvg(): void {
+    this.svg = d3.select("svg");
+    this.svg.attr("width", this.width)
+      .attr("height", this.height)
       .style("border", "1px solid black")
       .append("g")
-      .attr("transform",
-        "translate(" + this.margin.left + "," + this.margin.top + ")");
   }
 
   createForceNetwork() {
@@ -94,7 +95,7 @@ export class ActorNetworkComponent implements OnInit {
     //normal edges
     edgeEnter
       .append("line")
-      .style("stroke-width", "1px")
+      .style("stroke-width", (e) => `${e.width}px`)
       .style("stroke", "black")
       .style("pointer-events", "none");
 
@@ -102,14 +103,17 @@ export class ActorNetworkComponent implements OnInit {
     edgeEnter
       .append("line")
       .attr("class", "highlight")
-      .style("stroke-width", "8px")
+      .style("stroke-width", (e) => `${e.width + 5}px`)
       .style("stroke", "#66CCCC")
       .style("opacity", 0)
-      .on("mouseover", this.edgeOver)
-      .on("mouseout", this.edgeOut);
+      .attr("id", (e: any) => `${e.source.actor.id}-${e.target.actor.id}`)
+      .on("mouseover", this.edgeOver.bind(this))
+      .on("mouseout", this.edgeOut.bind(this))
+      .on("mousemove", this.edgeMove.bind(this));
+
 
     var nodeEnter = d3.select("svg").selectAll("g.node")
-      .data(this.nodes, (d: ActorNode) => { return d.actor.id})
+      .data(this.nodes, (d: ActorNode) => { return d.actor.id })
       .enter()
       .append("g")
       .attr("class", "node")
@@ -144,7 +148,7 @@ export class ActorNetworkComponent implements OnInit {
 
   expandNode(e) {
     let actorId = e.target.__data__.actor.id;
-    let actor = this.actors.find(a=>a.id==actorId);
+    let actor = this.actors.find(a => a.id == actorId);
     this._actorService.triggerActorSelectedHandlers(actor);
     // var currentNodes = d3.selectAll("g.node").data();
     // var currentEdges = d3.selectAll("g.edge").data();
@@ -181,23 +185,38 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   nodeOver(evt) {
-    evt.target.style['fill']=this.nodeHoverColor;
-    evt.target.style['stroke']=this.nodeHoverColor;
-    evt.target.style['stroke-width']='3px';
+    evt.target.style['fill'] = this.nodeHoverColor;
+    evt.target.style['stroke'] = this.nodeHoverColor;
+    evt.target.style['stroke-width'] = '3px';
   }
 
   nodeOut(evt) {
-    evt.target.style['fill']=this.nodeColor;
-    evt.target.style['stroke']='black';
-    evt.target.style['stroke-width']='1px';
+    evt.target.style['fill'] = this.nodeColor;
+    evt.target.style['stroke'] = 'black';
+    evt.target.style['stroke-width'] = '1px';
+  }
+
+  edgeMove(d) {
+    this.edgeTooltip
+      .style("left", (d.layerX + 20) + "px")
+      .style("top", (d.layerY) + "px")
   }
 
   edgeOver(evt) {
-    evt.target.style.opacity='0.75'
+    let idStrings = evt.target.id.split('-');
+    let movies = this._actorRepository.getMovieListbetweenActors(idStrings[0], idStrings[1], this.movies)
+    let text = movies.map(m => m.name).join('<br/>');
+    this.edgeTooltip.html(text);
+    this.edgeTooltip.style("opacity", 1);
+
+    evt.target.style.opacity = '0.75';
   }
 
   edgeOut(evt) {
-    evt.target.style.opacity='0'
+    this.edgeTooltip.html('');
+    this.edgeTooltip.style("opacity", 0)
+
+    evt.target.style.opacity = '0'
   }
 
   updateNetwork() {
@@ -213,7 +232,7 @@ export class ActorNetworkComponent implements OnInit {
       });
 
     d3.select("svg").selectAll("g.node > circle")
-        .attr("r", (d) => this.nodeRadius);
+      .attr("r", (d) => this.nodeRadius);
 
   }
 
@@ -227,7 +246,7 @@ interface ActorNode extends d3.SimulationNodeDatum {
   actor: Actor;
 }
 interface MovieLink extends d3.SimulationLinkDatum<SimulationNodeDatum> {
-  
+  width: number;
 }
 
 
