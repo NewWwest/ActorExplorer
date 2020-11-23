@@ -14,6 +14,18 @@ export class ActorRepository {
         return this._http.get<Actor>("http://localhost:4201/api/actor/name/will")
     }
 
+    getActorByName(name: string): Observable<Actor> {
+        return this._http.get<Actor>(`http://localhost:4201/api/actor/name/${name}`);
+    }
+
+    getMovies(movieIds: string[]): Observable<Movie>[] {
+        const movies: Observable<Movie>[] = [];
+        movieIds.forEach(id => {
+            movies.push(this._http.get<Movie>(`http://localhost:4201/api/movie/id/${id}`));
+        });
+        return movies;
+    }
+
     public getAllActorsAndovies(): [Actor[], Movie[]] {
         return <any>this.generateTestData(100, 10, 0.1);
     }
