@@ -1,7 +1,7 @@
 import { Movie } from './movie';
 
 export interface Actor {
-    id: string;
+    _id: string;
     name: string;
-    movies: Movie[]
+    movies: string[];
 }

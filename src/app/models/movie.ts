@@ -1,10 +1,10 @@
 import { Actor } from './actor';
 
 export interface Movie {
-    id: string;
-    name: string;
+    _id: string;
+    title: string;
     revenue: number;
-    rating: number;
+    vote_average: number;
     year: number;
-    actors: Actor[]
+    actors: string[];
 }
