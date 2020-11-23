@@ -23,6 +23,8 @@ app.use((req, res, next) => {
     next();
 })
 
+
+// TODO: we need to find a way to define this once (e.g. we defined these already in the models folder)
 var actorSchema = new Schema({
     name: String,
     birth: Number,
