@@ -20,26 +20,26 @@ export class ActorRepository {
 
     getMovieListbetweenActors(actorId1: string, actorId2: string, movies: Movie[]): Movie[] {
         return movies.filter(movie =>
-            movie.actors.filter(a => a.id == actorId1 || a.id == actorId2).length == 2
+            movie.actors.filter(a => a == actorId1 || a == actorId2).length == 2
         );
     }
 
     generateTestData(actorCount: number, movieCount: number, linkProbability: number) {
-        let actors = [];
-        let movies = [];
+        let actors: Actor[] = [];
+        let movies: Movie[] = [];
         for (let i = 0; i < actorCount; i++) {
             actors[i] = {
-                id: i,
+                _id: i.toString(),
                 name: `Actor Person ${i}`,
                 movies: []
             }
         }
         for (let i = 0; i < movieCount; i++) {
             movies[i] = {
-                id: i,
-                name: `Movie about ${i}`,
+                _id: i.toString(),
+                title: `Movie about ${i}`,
                 revenue: i * 1000,
-                rating: Math.round(Math.random() * 10 * 100) / 100,
+                vote_average: Math.round(Math.random() * 10 * 100) / 100,
                 year: i,
                 actors: []
             }
@@ -47,8 +47,8 @@ export class ActorRepository {
         for (let i = 0; i < actorCount; i++) {
             for (let j = 0; j < movieCount; j++) {
                 if (Math.random() < linkProbability) {
-                    actors[i].movies.push(movies[j]);
-                    movies[j].actors.push(actors[i]);
+                    actors[i].movies.push(movies[j]._id);
+                    movies[j].actors.push(actors[i]._id);
                 }
             }
         }

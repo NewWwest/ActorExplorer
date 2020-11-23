@@ -57,8 +57,8 @@ export class ActorNetworkComponent implements OnInit {
     movies.forEach(movie => {
       for (let i = 0; i < movie.actors.length; i++) {
         for (let j = i + 1; j < movie.actors.length; j++) {
-          let a1 = this.nodes.find((a) => a.actor.id == movie.actors[i].id);
-          let a2 = this.nodes.find((a) => a.actor.id == movie.actors[j].id);
+          let a1 = this.nodes.find((a) => a.actor._id == movie.actors[i]);
+          let a2 = this.nodes.find((a) => a.actor._id == movie.actors[j]);
           this.edges.push(<MovieLink>{
             width: Math.ceil(Math.random() * 3), //TODO: calculate this
             source: a1,
@@ -106,14 +106,14 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke-width", (e) => `${e.width + 5}px`)
       .style("stroke", "#66CCCC")
       .style("opacity", 0)
-      .attr("id", (e: any) => `${e.source.actor.id}-${e.target.actor.id}`)
+      .attr("id", (e: any) => `${e.source.actor._id}-${e.target.actor._id}`)
       .on("mouseover", this.edgeOver.bind(this))
       .on("mouseout", this.edgeOut.bind(this))
       .on("mousemove", this.edgeMove.bind(this));
 
 
     var nodeEnter = d3.select("svg").selectAll("g.node")
-      .data(this.nodes, (d: ActorNode) => { return d.actor.id })
+      .data(this.nodes, (d: ActorNode) => { return d.actor._id })
       .enter()
       .append("g")
       .attr("class", "node")
@@ -148,7 +148,7 @@ export class ActorNetworkComponent implements OnInit {
 
   expandNode(e) {
     let actorId = e.target.__data__.actor.id;
-    let actor = this.actors.find(a => a.id == actorId);
+    let actor = this.actors.find(a => a._id == actorId);
     this._actorService.triggerActorSelectedHandlers(actor);
     // var currentNodes = d3.selectAll("g.node").data();
     // var currentEdges = d3.selectAll("g.edge").data();
@@ -205,7 +205,7 @@ export class ActorNetworkComponent implements OnInit {
   edgeOver(evt) {
     let idStrings = evt.target.id.split('-');
     let movies = this._actorRepository.getMovieListbetweenActors(idStrings[0], idStrings[1], this.movies)
-    let text = movies.map(m => m.name).join('<br/>');
+    let text = movies.map(m => m.title).join('<br/>');
     this.edgeTooltip.html(text);
     this.edgeTooltip.style("opacity", 1);
 
