@@ -24,11 +24,34 @@ app.use((req, res, next) => {
 })
 
 var actorSchema = new Schema({
-    name: { type: String },
+    name: String,
+    birth: Number,
+    death: Number,
+    movies: [Schema.Types.ObjectId],
+
 });
 var actorModel = mongoose.model('actor', actorSchema, 'actor')
 
+var movieSchema = new Schema({
+    title: String,
+    year: Number,
+    revenue: Number,
+    vote_average: Number,
+    actors: [Schema.Types.ObjectId],
+});
+var movieModel = mongoose.model('movie', movieSchema, 'movie')
 
+app.get('/api/movie/id/:movieId', (req, res) => {
+    console.log(`Request for movie by Id:${req.params.movieId}`)
+    var id = mongoose.Types.ObjectId(req.params.movieId); 
+    movieModel.findById(id, (err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    })
+});
 app.get('/api/actor/id/:actorId', (req, res) => {
     console.log(`Request for actor by Id:${req.params.actorId}`)
     var id = mongoose.Types.ObjectId(req.params.actorId)
@@ -42,7 +65,7 @@ app.get('/api/actor/id/:actorId', (req, res) => {
 });
 app.get('/api/actor/name/:name', (req, res) => {
     console.log(`Request for actor by name:${req.params.name}`)
-    actorModel.find({ name: { "$regex": req.params.name } }, (err, data) => {
+    actorModel.findOne({ name: { "$regex": req.params.name } }, (err, data) => {
         if (err) {
             res.send(err);
         } else {
