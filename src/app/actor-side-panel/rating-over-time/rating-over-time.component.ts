@@ -13,41 +13,51 @@ export class RatingOverTimeComponent implements OnInit {
   constructor(private _actorRepository: ActorRepository) { }
 
   ngOnInit(): void {
+
     const actorName = "Will Smith";
     this._actorRepository.getActorByName(actorName).subscribe(actor => {
       forkJoin(this._actorRepository.getMovies(actor.movies)).subscribe(movies => {
         let min = d3.min(movies, m => m.year);
         let max = d3.max(movies, m => m.year)
-       const x = d3.scaleTime()
+        let height = 100;
+        let width = 400;
+        let bar_width = 10;
+
+        const x = d3.scaleTime()
          .domain([min, max])
-        .range([0, 100]);
+         .range([0, width]);
         
 
-      let height = 100;
-      console.log(movies)
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(movies, m => m.vote_average)])
-        .range([height, 0]);
+        console.log(movies)
+        const y = d3.scaleLinear()
+          .domain([0, d3.max(movies, m => m.vote_average)])
+          .range([height, 0]);
 
 
-      const svg = d3.select('p#test').append('svg')
-        .attr('width', x.range()[1])
-        .attr('height', height)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', '10')
-        .attr('text-anchor', 'end');
+        const svg = d3.select('p#test').append('svg')
+          .attr('width', x.range()[1])
+          .attr('height', height)
+          .attr('font-family', 'sans-serif')
+          .attr('font-size', '10')
+          .attr('text-anchor', 'end');
 
-      const bar = svg.selectAll('g')
-        .data(movies)
-        .join('g')
-        .attr('transform', m => `translate(${x(m.year)}, 0)`);
+        const bar = svg.selectAll('g')
+          .data(movies)
+          .join('g')
+          .attr('transform', m => `translate(${x(m.year)}, 0)`);
 
-      bar.append('rect')
-        .attr('fill', 'red')
-        .attr('height', m => height - y(m.vote_average))
-        .attr('y', m =>  y(m.vote_average))
-        .attr('width', 2)
-        .attr('vertical-align', 'top')
+
+        svg.append("g")
+          .attr("transform", "translate(0," + height + ")")
+          .call(d3.axisBottom(x))
+
+
+        bar.append('rect')
+          .attr('fill', 'rgba(255,0,0,0.25)')
+          .attr('height', m => height - y(m.vote_average))
+          .attr('y', m =>  y(m.vote_average))
+          .attr('width', bar_width)
+          .attr('vertical-align', 'top')
 
       })
       }, (err) => {
