@@ -4,4 +4,5 @@ export interface Actor {
     _id: string;
     name: string;
     movies: string[];
+    birth: number;
 }

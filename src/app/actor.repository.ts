@@ -43,7 +43,8 @@ export class ActorRepository {
             actors[i] = {
                 _id: i.toString(),
                 name: `Actor Person ${i}`,
-                movies: []
+                movies: [],
+                birth: 0
             }
         }
         for (let i = 0; i < movieCount; i++) {
@@ -53,6 +54,8 @@ export class ActorRepository {
                 revenue: i * 1000,
                 vote_average: Math.round(Math.random() * 10 * 100) / 100,
                 year: i,
+                month: i,
+                day: i,
                 actors: []
             }
         }

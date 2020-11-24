@@ -37,6 +37,8 @@ var actorModel = mongoose.model('actor', actorSchema, 'actor')
 var movieSchema = new Schema({
     title: String,
     year: Number,
+    month: Number,
+    day: Number,
     revenue: Number,
     vote_average: Number,
     actors: [Schema.Types.ObjectId],
