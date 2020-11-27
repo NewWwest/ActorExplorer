@@ -10,12 +10,12 @@ import { Movie } from './models/movie';
 export class ActorRepository {
     constructor(private _http: HttpClient) { }
 
-    getWills(): Observable<Actor> {
-        return this._http.get<Actor>("http://localhost:4201/api/actor/name/will")
-    }
-
     getActorByName(name: string): Observable<Actor> {
         return this._http.get<Actor>(`http://localhost:4201/api/actor/name/${name}`);
+    }
+    
+    getActorById(id: string): Observable<Actor> {
+        return this._http.get<Actor>(`http://localhost:4201/api/actor/id/${id}`);
     }
 
     getMovies(movieIds: string[]): Observable<Movie>[] {
@@ -26,47 +26,13 @@ export class ActorRepository {
         return movies;
     }
 
-    public getAllActorsAndovies(): [Actor[], Movie[]] {
-        return <any>this.generateTestData(100, 10, 0.1);
+    getMoviesOfAnActor(actorId: string): Observable<Movie[]> {
+        return this._http.get<Movie[]>(`http://localhost:4201/api/actor/id/${actorId}/movies`);
     }
 
     getMovieListbetweenActors(actorId1: string, actorId2: string, movies: Movie[]): Movie[] {
         return movies.filter(movie =>
             movie.actors.filter(a => a == actorId1 || a == actorId2).length == 2
         );
-    }
-
-    generateTestData(actorCount: number, movieCount: number, linkProbability: number) {
-        let actors: Actor[] = [];
-        let movies: Movie[] = [];
-        for (let i = 0; i < actorCount; i++) {
-            actors[i] = {
-                _id: i.toString(),
-                name: `Actor Person ${i}`,
-                movies: [],
-                birth: 0
-            }
-        }
-        for (let i = 0; i < movieCount; i++) {
-            movies[i] = {
-                _id: i.toString(),
-                title: `Movie about ${i}`,
-                revenue: i * 1000,
-                vote_average: Math.round(Math.random() * 10 * 100) / 100,
-                year: i,
-                month: i,
-                day: i,
-                actors: []
-            }
-        }
-        for (let i = 0; i < actorCount; i++) {
-            for (let j = 0; j < movieCount; j++) {
-                if (Math.random() < linkProbability) {
-                    actors[i].movies.push(movies[j]._id);
-                    movies[j].actors.push(actors[i]._id);
-                }
-            }
-        }
-        return [actors, movies]
     }
 }

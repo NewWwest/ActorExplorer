@@ -1,5 +1,6 @@
 var express = require('express')
 var mongoose = require('mongoose')
+var rxjs = require('rxjs')
 const { Schema } = mongoose;
 
 var db = mongoose
@@ -47,7 +48,7 @@ var movieModel = mongoose.model('movie', movieSchema, 'movie')
 
 app.get('/api/movie/id/:movieId', (req, res) => {
     console.log(`Request for movie by Id:${req.params.movieId}`)
-    var id = mongoose.Types.ObjectId(req.params.movieId); 
+    var id = mongoose.Types.ObjectId(req.params.movieId);
     movieModel.findById(id, (err, data) => {
         if (err) {
             res.send(err);
@@ -75,6 +76,20 @@ app.get('/api/actor/name/:name', (req, res) => {
         } else {
             res.send(data)
         }
+    })
+});
+app.get('/api/actor/id/:actorId/movies', (req, res) => {
+    console.log(`Request for movies of an actor by id:${req.params.actorId}`)
+    var id = mongoose.Types.ObjectId(req.params.actorId);
+    actorModel.findById(id, (err, data) => {
+        if (err) {
+            res.send(err);
+            return;
+        }
+        var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
+        rxjs.forkJoin(observables).subscribe(movieModels => {
+            res.send(movieModels);
+        })
     })
 });
 app.listen(4201, () => { console.log('Listening for requests') });
