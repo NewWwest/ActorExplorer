@@ -91,5 +91,15 @@ app.get('/api/actor/id/:actorId/movies', (req, res) => {
             res.send(movieModels);
         })
     })
+}); //
+app.get('/api/search/actorname/:name', (req, res) => {
+    console.log(`Request for actors matching name:${req.params.name}`)
+    actorModel.find({ name: { "$regex": req.params.name, $options: "i" } }, (err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    })
 });
 app.listen(4201, () => { console.log('Listening for requests') });

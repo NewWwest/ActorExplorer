@@ -1,0 +1,19 @@
+.search-box-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.search-box {
+    width: 30rem;
+    line-height: 2;
+    border-radius: 5px;
+}
+
+.top-panel-spacer {
+    padding: 10px;
+}
+
+.top-panel-element {
+    display: inline-block;
+}

@@ -1,0 +1,23 @@
+<mat-toolbar>
+    <img src="/assets/logo-tud.png">
+
+    <span class="top-panel-spacer"></span>
+
+    <span class="top-panel-element">
+        Actor Explorer
+    </span>
+
+    <span class="top-panel-spacer"></span>
+
+    <span class="search-box-container">
+        <div class="top-panel-element">
+            <input class="search-box" [(ngModel)]="searchBoxText" type="text" (input)="report($event)" placeholder="Search..." [matAutocomplete]="auto">
+            <mat-autocomplete #auto="matAutocomplete" (optionSelected)="actorSelected($event)">
+                <mat-option *ngFor="let option of actorNames" [value]="option">
+                    {{option}}
+                </mat-option>
+            </mat-autocomplete>
+        </div>
+    </span>
+
+</mat-toolbar>

@@ -10,6 +10,10 @@ import { Movie } from './models/movie';
 export class ActorRepository {
     constructor(private _http: HttpClient) { }
 
+    searchActorsByName(name: string): Observable<Actor[]> {
+        return this._http.get<Actor[]>(`http://localhost:4201/api/search/actorname/${name}`);
+    }
+
     getActorByName(name: string): Observable<Actor> {
         return this._http.get<Actor>(`http://localhost:4201/api/actor/name/${name}`);
     }

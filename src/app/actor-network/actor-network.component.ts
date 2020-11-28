@@ -44,6 +44,7 @@ export class ActorNetworkComponent implements OnInit {
     }, (err) => {
       console.error(err);
     });
+    this._actorService.addSearchForActorHandler(this.addOrSelectNewActor.bind(this));
   }
 
   importData(actors: Actor[], movies: Movie[]) {
@@ -155,14 +156,14 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke-opacity", 0.75)
       .style("stroke", "white")
       .style("font-size", "8px")
-      .text((d) => (<any>d).actor.name)
+      .text((d) => d.actor.name)
       .style("pointer-events", "none")
 
     nodeEnter.append("text")
       .style("text-anchor", "middle")
       .attr("y", 2)
       .style("font-size", "8px")
-      .text((d) => (<any>d).actor.name)
+      .text((d) => d.actor.name)
       .style("pointer-events", "none")
     this.simulation.restart();
   }
@@ -226,6 +227,24 @@ export class ActorNetworkComponent implements OnInit {
     this.edgeTooltip.style("opacity", 0)
 
     evt.target.style.opacity = '0'
+  }
+  addOrSelectNewActor(actor: Actor) {
+    if (this.actors.find(a => a._id == actor._id) == null) {
+      this.actors.push(actor);
+      this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
+        for (let i = 0; i < movies.length; i++) {
+          if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
+            this.movies.push(movies[i])
+          }
+        }
+        this.createForceNetwork();
+      }, (err) => {
+        console.error(err);
+      });
+    }
+    else {
+      //HIGHLIGHT ACTOR
+    }
   }
 
   updateNetwork() {
