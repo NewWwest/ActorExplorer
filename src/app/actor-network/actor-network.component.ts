@@ -13,6 +13,8 @@ import { Movie } from '../models/movie';
 })
 export class ActorNetworkComponent implements OnInit {
   expandConstant = 5;
+  nodeRadius = 20;
+
   startingActor = "Zac Efron"
   actors: Actor[] = [];
   movies: Movie[] = [];
@@ -22,7 +24,6 @@ export class ActorNetworkComponent implements OnInit {
   edgeTooltip: any = null;
   svg: any = null;
 
-  private nodeRadius = 10;
   private nodeColor = 'lime';
   private nodeHoverColor = 'green'
 
@@ -51,8 +52,15 @@ export class ActorNetworkComponent implements OnInit {
     if (this.simulation)
       this.simulation.stop()
     actors.forEach(actor => {
-      if (this.nodes.find(n => n.actor._id == actor._id) == null) {
-        this.nodes.push(<ActorNode>{ actor: actor });
+      let node = this.nodes.find(n => n.actor._id == actor._id);
+      if (node != null) {
+        node.nodeAge++;
+      } else {
+        this.nodes.push({
+          actor: actor,
+          nodeAge: 0,
+          isSelected: false
+        });
       }
     });
     movies.forEach(movie => {
@@ -95,13 +103,13 @@ export class ActorNetworkComponent implements OnInit {
     this.svg = d3.select("svg");
     this.svg.attr("width", this.width)
       .attr("height", this.height)
-      .style("border", "1px solid black")
-      .append("g")
+      .style("border", "1px solid black");
   }
 
   createForceNetwork() {
     this.importData(this.actors, this.movies);
     this.simulation = d3.forceSimulation<ActorNode, MovieLink>(this.nodes)
+      .force('collide', d3.forceCollide().radius(2 * this.nodeRadius))
       .force("link", d3.forceLink(this.edges))
       .force("charge", d3.forceManyBody().strength(-10))
       .force("center", d3.forceCenter(this.width / 2, this.height / 2))
@@ -116,6 +124,7 @@ export class ActorNetworkComponent implements OnInit {
     //normal edges
     edgeEnter
       .append("line")
+      .attr("class", "core")
       .style("stroke-width", (e) => `${e.width}px`)
       .style("stroke", "black")
       .style("pointer-events", "none");
@@ -165,12 +174,23 @@ export class ActorNetworkComponent implements OnInit {
       .style("font-size", "8px")
       .text((d) => d.actor.name)
       .style("pointer-events", "none")
+
+    d3.select("svg").selectAll("g").sort((l: any, r: any) => {
+      if (l.actor == null && r.actor != null) {
+        return -1;
+      }
+      if (l.actor != null && r.actor == null) {
+        return 1;
+      }
+      return 0;
+    })
     this.simulation.restart();
   }
 
   expandNode(e) {
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
+    this.selectNode(actorId);
     this._actorService.triggerActorSelectedHandlers(actor);
     this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
       for (let i = 0; i < movies.length; i++) {
@@ -192,6 +212,18 @@ export class ActorNetworkComponent implements OnInit {
     }, (err) => {
       console.error(err);
     });
+  }
+
+  selectNode(actorId: string) {
+    this.nodes.forEach(n => {
+      if (n.actor._id == actorId) {
+        n.isSelected = true;
+        n.nodeAge = 0;
+      }
+      else {
+        n.isSelected = false;
+      }
+    })
   }
 
   nodeOver(evt) {
@@ -229,7 +261,12 @@ export class ActorNetworkComponent implements OnInit {
     evt.target.style.opacity = '0'
   }
   addOrSelectNewActor(actor: Actor) {
-    if (this.actors.find(a => a._id == actor._id) == null) {
+    let node = this.nodes.find(a => a.actor._id == actor._id);
+    if (node != null) {
+      this.selectNode(actor._id)
+      this.createForceNetwork();
+    }
+    else {
       this.actors.push(actor);
       this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
         for (let i = 0; i < movies.length; i++) {
@@ -237,13 +274,11 @@ export class ActorNetworkComponent implements OnInit {
             this.movies.push(movies[i])
           }
         }
+        this.selectNode(actor._id);
         this.createForceNetwork();
       }, (err) => {
         console.error(err);
       });
-    }
-    else {
-      //HIGHLIGHT ACTOR
     }
   }
 
@@ -254,14 +289,22 @@ export class ActorNetworkComponent implements OnInit {
       .attr("x2", function (d: any) { return d.target.x })
       .attr("y2", function (d: any) { return d.target.y });
 
+    d3.select("svg").selectAll(".core")
+      .style("opacity", (e: any) => {
+        return (Math.min(Math.max(1.4 - e.source.nodeAge * 0.2, 0.1), Math.max(1.4 - e.target.nodeAge * 0.2, 0.1)))
+      });;
+
     d3.select("svg").selectAll("g.node")
-      .attr("transform", function (d: any) {
-        return "translate(" + d.x + "," + d.y + ")"
+      .attr("transform", (n: ActorNode) => {
+        return "translate(" + n.x + "," + n.y + ")"
+      })
+      .style("opacity", (n: ActorNode) => {
+        return Math.max(1.4 - n.nodeAge * 0.2, 0.1);
       });
 
     d3.select("svg").selectAll("g.node > circle")
-      .attr("r", (d) => this.nodeRadius);
 
+      .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
   }
 
 
@@ -299,6 +342,8 @@ export class ActorNetworkComponent implements OnInit {
 
 interface ActorNode extends d3.SimulationNodeDatum {
   actor: Actor;
+  nodeAge: number;
+  isSelected: boolean;
 }
 
 interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {
