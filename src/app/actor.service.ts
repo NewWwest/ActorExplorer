@@ -6,7 +6,6 @@ import { Actor } from './models/actor';
 })
 export class ActorService implements OnInit {
     actorSelectedHandlers: any[]=[];
-    searchForActorHandler: any[]=[];
     constructor() { }
 
     ngOnInit(): void {
@@ -18,17 +17,6 @@ export class ActorService implements OnInit {
     }
     public triggerActorSelectedHandlers(actor: Actor){
         this.actorSelectedHandlers.forEach(handler =>{
-            if(handler && {}.toString.call(handler) === '[object Function]'){
-                handler(actor);
-            }
-        })
-    }
-
-    public addSearchForActorHandler(f: any): void {
-        this.searchForActorHandler.push(f);
-    }
-    public triggerSearchForActorHandlers(actor: Actor){
-        this.searchForActorHandler.forEach(handler =>{
             if(handler && {}.toString.call(handler) === '[object Function]'){
                 handler(actor);
             }
