@@ -13,7 +13,8 @@ import { Movie } from '../models/movie';
 })
 export class ActorNetworkComponent implements OnInit {
   expandConstant = 5;
-  nodeRadius = 20;
+  nodeCollisionRadius = 20;
+  minNodeRadius = 10;
 
   startingActor = "Zac Efron"
   actors: Actor[] = [];
@@ -23,12 +24,13 @@ export class ActorNetworkComponent implements OnInit {
 
   edgeTooltip: any = null;
   svg: any = null;
+  g: any = null;
 
   private nodeColor = 'lime';
   private nodeHoverColor = 'green'
 
-  private width = 500
-  private height = 500
+  private width = 2000
+  private height = 2000
   simulation: d3.Simulation<ActorNode, MovieLink>;
 
   constructor(private _actorRepository: ActorRepository,
@@ -40,30 +42,38 @@ export class ActorNetworkComponent implements OnInit {
     this.sizeSvg();
 
     this._actorRepository.getActorByName(this.startingActor).subscribe(actor => {
-      this.actors.push(actor);
+      this.addActor(actor, this.width / 2, this.height / 2);
       this.createForceNetwork();
     }, (err) => {
       console.error(err);
     });
     this._actorService.addSearchForActorHandler(this.addOrSelectNewActor.bind(this));
+    this._actorService.addResetHandlers(this.reset.bind(this));
   }
 
-  importData(actors: Actor[], movies: Movie[]) {
+  addActor(actor: Actor, x: number, y: number) {
     if (this.simulation)
-      this.simulation.stop()
-    actors.forEach(actor => {
-      let node = this.nodes.find(n => n.actor._id == actor._id);
-      if (node != null) {
-        node.nodeAge++;
-      } else {
-        this.nodes.push({
-          actor: actor,
-          nodeAge: 0,
-          isSelected: false
-        });
-      }
-    });
-    movies.forEach(movie => {
+      this.simulation.stop();
+
+    if (this.actors.find(a => actor._id == a._id) == null) {
+      this.actors.push(actor);
+      this.nodes.push({
+        actor: actor,
+        isSelected: false,
+        x: x ? x + Math.random() * 10 - 5 : null,
+        y: x ? y + Math.random() * 10 - 5 : null,
+        movieIds: actor.movies,
+        movieCount: actor.movies.length,
+        skeletonNode: false
+      });
+    }
+  }
+
+  addMissingEdges() {
+    if (this.simulation)
+      this.simulation.stop();
+
+    this.movies.forEach(movie => {
       for (let i = 0; i < movie.actors.length; i++) {
         for (let j = i + 1; j < movie.actors.length; j++) {
           if (movie.actors[i] == movie.actors[j]) {
@@ -101,81 +111,31 @@ export class ActorNetworkComponent implements OnInit {
 
   private sizeSvg(): void {
     this.svg = d3.select("svg");
+    this.g = this.svg.append("g");
     this.svg.attr("width", this.width)
       .attr("height", this.height)
       .style("border", "1px solid black");
+
+    this.svg.call(d3.zoom()
+      .on("zoom", e => {
+        this.g.attr("transform", e.transform);
+      })
+    );
   }
 
   createForceNetwork() {
-    this.importData(this.actors, this.movies);
+    this.addMissingEdges();
     this.simulation = d3.forceSimulation<ActorNode, MovieLink>(this.nodes)
-      .force('collide', d3.forceCollide().radius(2 * this.nodeRadius))
+      .force('collide', d3.forceCollide().radius((n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)) + this.nodeCollisionRadius))
       .force("link", d3.forceLink(this.edges))
       .force("charge", d3.forceManyBody().strength(-10))
       .force("center", d3.forceCenter(this.width / 2, this.height / 2))
       .on("tick", this.updateNetwork.bind(this));
 
-    var edgeEnter = d3.select("svg").selectAll("g.edge")
-      .data(this.edges)
-      .enter()
-      .append("g")
-      .attr("class", "edge");
+    this.addAndStyleEdges();
+    this.addAndStyleNodes();
 
-    //normal edges
-    edgeEnter
-      .append("line")
-      .attr("class", "core")
-      .style("stroke-width", (e) => `${e.width}px`)
-      .style("stroke", "black")
-      .style("pointer-events", "none");
-
-    //edges shown when hovered
-    edgeEnter
-      .append("line")
-      .attr("class", "highlight")
-      .style("stroke-width", (e) => `${e.width + 5}px`)
-      .style("stroke", "#66CCCC")
-      .style("opacity", 0)
-      .attr("id", (e: any) => `${e.source.actor._id}-${e.target.actor._id}`)
-      .on("mouseover", this.edgeOver.bind(this))
-      .on("mouseout", this.edgeOut.bind(this))
-      .on("mousemove", this.edgeMove.bind(this));
-
-
-    var nodeEnter = d3.select("svg").selectAll("g.node")
-      .data(this.nodes, (d: ActorNode) => { return d.actor._id })
-      .enter()
-      .append("g")
-      .attr("class", "node")
-      .on("click", this.expandNode.bind(this))
-      .on("mouseover", this.nodeOver.bind(this))
-      .on("mouseout", this.nodeOut.bind(this));
-    // .call(force.drag());
-
-    nodeEnter.append("circle")
-      .attr("r", this.nodeRadius)
-      .style("fill", this.nodeColor)
-      .style("stroke", "black")
-      .style("stroke-width", "1px")
-
-    nodeEnter.append("text")
-      .style("text-anchor", "middle")
-      .attr("y", 2)
-      .style("stroke-width", "1px")
-      .style("stroke-opacity", 0.75)
-      .style("stroke", "white")
-      .style("font-size", "8px")
-      .text((d) => d.actor.name)
-      .style("pointer-events", "none")
-
-    nodeEnter.append("text")
-      .style("text-anchor", "middle")
-      .attr("y", 2)
-      .style("font-size", "8px")
-      .text((d) => d.actor.name)
-      .style("pointer-events", "none")
-
-    d3.select("svg").selectAll("g").sort((l: any, r: any) => {
+    this.g.selectAll("g").sort((l: any, r: any) => {
       if (l.actor == null && r.actor != null) {
         return -1;
       }
@@ -184,13 +144,19 @@ export class ActorNetworkComponent implements OnInit {
       }
       return 0;
     })
-    this.simulation.restart();
+    this.simulation.alpha(0.2).restart();
   }
 
   expandNode(e) {
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
+    let node = this.nodes.find(a => a.actor._id == actorId)
+
     this.selectNode(actorId);
+    this.nodes.forEach(n => { n.fx = null; n.fy = null })
+    node.fx = node.x;
+    node.fy = node.y;
+
     this._actorService.triggerActorSelectedHandlers(actor);
     this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
       for (let i = 0; i < movies.length; i++) {
@@ -201,10 +167,19 @@ export class ActorNetworkComponent implements OnInit {
       let toBeAdded = this.selectActorIdsToAdd(movies);
       if (toBeAdded.length > 0) {
         let observables: Observable<Actor>[] = toBeAdded.map(id => this._actorRepository.getActorById(id));
-        forkJoin(observables).subscribe(x => {
-          this.actors = this.actors.concat(x);
+        observables.forEach(o => o.subscribe(a => {
+          this.addActor(a, node ? node.x : null, node ? node.y : null);
           this.createForceNetwork();
-        });
+        }
+        ));
+        // forkJoin(observables).subscribe(x => {
+        //   if (this.simulation)
+        //     this.simulation.stop()
+        //   x.forEach(a => {
+        //     this.addActor(a, node ? node.x : null, node ? node.y : null);
+        //   })
+        //   this.createForceNetwork();
+        // });
       }
       else {
         this.createForceNetwork();
@@ -218,7 +193,7 @@ export class ActorNetworkComponent implements OnInit {
     this.nodes.forEach(n => {
       if (n.actor._id == actorId) {
         n.isSelected = true;
-        n.nodeAge = 0;
+        n.skeletonNode = true;
       }
       else {
         n.isSelected = false;
@@ -233,9 +208,11 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   nodeOut(evt) {
+    let actorId = evt.target.__data__.actor._id;
+    let node = this.nodes.find(a => a.actor._id == actorId)
     evt.target.style['fill'] = this.nodeColor;
     evt.target.style['stroke'] = 'black';
-    evt.target.style['stroke-width'] = '1px';
+    evt.target.style['stroke-width'] = node.isSelected ? '3px' : '1px';
   }
 
   edgeMove(d) {
@@ -257,17 +234,17 @@ export class ActorNetworkComponent implements OnInit {
   edgeOut(evt) {
     this.edgeTooltip.html('');
     this.edgeTooltip.style("opacity", 0)
-
     evt.target.style.opacity = '0'
   }
+
   addOrSelectNewActor(actor: Actor) {
     let node = this.nodes.find(a => a.actor._id == actor._id);
     if (node != null) {
-      this.selectNode(actor._id)
+      this.selectNode(actor._id);
       this.createForceNetwork();
     }
     else {
-      this.actors.push(actor);
+      this.addActor(actor, this.width / 2, this.height / 2);
       this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
         for (let i = 0; i < movies.length; i++) {
           if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
@@ -281,32 +258,6 @@ export class ActorNetworkComponent implements OnInit {
       });
     }
   }
-
-  updateNetwork() {
-    d3.select("svg").selectAll("line")
-      .attr("x1", function (d: any) { return d.source.x })
-      .attr("y1", function (d: any) { return d.source.y })
-      .attr("x2", function (d: any) { return d.target.x })
-      .attr("y2", function (d: any) { return d.target.y });
-
-    d3.select("svg").selectAll(".core")
-      .style("opacity", (e: any) => {
-        return (Math.min(Math.max(1.4 - e.source.nodeAge * 0.2, 0.1), Math.max(1.4 - e.target.nodeAge * 0.2, 0.1)))
-      });;
-
-    d3.select("svg").selectAll("g.node")
-      .attr("transform", (n: ActorNode) => {
-        return "translate(" + n.x + "," + n.y + ")"
-      })
-      .style("opacity", (n: ActorNode) => {
-        return Math.max(1.4 - n.nodeAge * 0.2, 0.1);
-      });
-
-    d3.select("svg").selectAll("g.node > circle")
-
-      .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
-  }
-
 
   isSameEdge(sourceId1, targetId1, sourceId2, targetId2) {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
@@ -338,12 +289,125 @@ export class ActorNetworkComponent implements OnInit {
     }
     return toBeAdded;
   }
+
+  addAndStyleEdges() {
+    var edgeEnter = this.g.selectAll("g.edge")
+      .data(this.edges)
+      .enter()
+      .append("g")
+      .attr("class", "edge");
+
+    //normal edges
+    edgeEnter
+      .append("line")
+      .attr("class", "core")
+      .style("stroke-width", (e) => `${e.width}px`)
+      .style("stroke", "black")
+      .style("pointer-events", "none");
+
+    //skeleton
+    edgeEnter
+      .append("line")
+      .attr("class", "skeleton")
+      .style("stroke-width", (e) => `${e.width + 5}px`)
+      .style("stroke", "#FF5533")
+      .style("opacity", 0);
+
+    //edges shown when hovered
+    edgeEnter
+      .append("line")
+      .attr("class", "highlight")
+      .style("stroke-width", (e) => `${e.width + 5}px`)
+      .style("stroke", "#66CCCC")
+      .style("opacity", 0)
+      .attr("id", (e: any) => `${e.source.actor._id}-${e.target.actor._id}`)
+      .on("mouseover", this.edgeOver.bind(this))
+      .on("mouseout", this.edgeOut.bind(this))
+      .on("mousemove", this.edgeMove.bind(this));
+
+    d3.select("svg").selectAll("line.skeleton")
+      .style("opacity", (e: any) => {
+        return e.source.skeletonNode && e.target.skeletonNode ? 0.4 : 0
+      });
+  }
+
+  addAndStyleNodes() {
+    var nodeEnter = this.g.selectAll("g.node")
+      .data(this.nodes, (d: ActorNode) => { return d.actor._id })
+      .enter()
+      .append("g")
+      .attr("class", "node")
+      .on("click", this.expandNode.bind(this))
+      .on("mouseover", this.nodeOver.bind(this))
+      .on("mouseout", this.nodeOut.bind(this));
+
+    nodeEnter.append("circle")
+      .attr("r", (n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)))
+      .style("fill", this.nodeColor)
+      .style("stroke", "black")
+      .style("stroke-width", "1px")
+
+    nodeEnter.append("text")
+      .style("text-anchor", "middle")
+      .attr("y", 2)
+      .style("stroke-width", "1px")
+      .style("stroke-opacity", 0.75)
+      .style("stroke", "white")
+      .style("font-size", "8px")
+      .text((d) => d.actor.name)
+      .style("pointer-events", "none")
+
+    nodeEnter.append("text")
+      .style("text-anchor", "middle")
+      .attr("y", 2)
+      .style("font-size", "8px")
+      .text((d) => d.actor.name)
+      .style("pointer-events", "none")
+
+
+    d3.select("svg").selectAll("g.node > circle")
+      .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
+  }
+
+  updateNetwork() {
+    d3.select("svg").selectAll("line")
+      .attr("x1", function (d: any) { return d.source.x })
+      .attr("y1", function (d: any) { return d.source.y })
+      .attr("x2", function (d: any) { return d.target.x })
+      .attr("y2", function (d: any) { return d.target.y });
+
+    d3.select("svg").selectAll("g.node")
+      .attr("transform", (n: ActorNode) => {
+        return "translate(" + n.x + "," + n.y + ")"
+      });
+  }
+  
+  reset() {
+    if (this.simulation)
+      this.simulation.stop();
+    d3.select("svg").selectAll("g.edge").data([]).enter()
+    d3.select("svg").selectAll("g.node").data([]).enter()
+    d3.selectAll("g.node").data([]).exit()
+      .transition().duration(500).style("opacity", 0)
+      .remove();
+    d3.selectAll("g.edge").data([]).exit()
+      .transition().duration(500).style("opacity", 0)
+      .remove();
+    this.actors = [];
+    this.movies = [];
+    this.nodes = [];
+    this.edges = [];
+    if (this.simulation)
+      this.simulation.restart();
+  }
 }
 
 interface ActorNode extends d3.SimulationNodeDatum {
   actor: Actor;
-  nodeAge: number;
   isSelected: boolean;
+  movieIds: string[];
+  movieCount: number;
+  skeletonNode: boolean;
 }
 
 interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {

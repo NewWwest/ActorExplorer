@@ -12,6 +12,8 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TopBarComponent } from './top-bar/top-bar.component';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -28,7 +30,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
     MatAutocompleteModule,
     FormsModule,
     MatToolbarModule,
-    MatFormFieldModule
+    MatFormFieldModule,
+    MatButtonModule,
   ],
   providers: [],
   bootstrap: [AppComponent]

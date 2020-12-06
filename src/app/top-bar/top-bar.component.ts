@@ -14,6 +14,10 @@ export class TopBarComponent {
     private _actorRepository: ActorRepository,
     private _actorService: ActorService) { }
 
+  reset(e) {
+    this._actorService.triggerResetHandlers();
+  }
+
   report(e) {
     if (this.searchBoxText && this.searchBoxText.length > 3) {
       this._actorRepository.searchActorsByName(this.searchBoxText).subscribe((data) => {
