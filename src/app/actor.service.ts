@@ -8,6 +8,7 @@ export class ActorService implements OnInit {
     actorSelectedHandlers: any[]=[];
     searchForActorHandler: any[]=[];
     resetHandlers: any[]=[];
+    timeRangeHandlers: any[]=[];
     constructor() { }
 
     ngOnInit(): void {
@@ -45,5 +46,15 @@ export class ActorService implements OnInit {
                 handler();
             }
         })
+    }
+    public addTimeRangeHandler(f: any): void {
+        this.timeRangeHandlers.push(f);
+    }
+    public triggerTimeRangeHandlers(minYear: number, maxYear: number){
+        this.timeRangeHandlers.forEach(handler => {
+            if (handler && {}.toString.call(handler) === '[object Function]') {
+                handler(minYear, maxYear);
+            }
+        });
     }
 }

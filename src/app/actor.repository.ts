@@ -30,6 +30,10 @@ export class ActorRepository {
         return movies;
     }
 
+    getAllMovies(): Observable<Movie[]> {
+        return this._http.get<Movie[]>(`http://localhost:4201/api/movie/allMovies`);
+    }
+ 
     getMoviesOfAnActor(actorId: string): Observable<Movie[]> {
         return this._http.get<Movie[]>(`http://localhost:4201/api/actor/id/${actorId}/movies`);
     }

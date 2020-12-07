@@ -4,13 +4,21 @@ import { ActorRepository } from 'src/app/actor.repository';
 import { forkJoin } from 'rxjs';
 import { Movie } from 'src/app/models/movie';
 import { Actor } from 'src/app/models/actor';
-import { ScaleLinear } from 'd3';
+import { ScaleLinear, tickStep } from 'd3';
+import { ActorService } from 'src/app/actor.service';
+
 @Component({
   selector: 'app-rating-over-time',
   templateUrl: './rating-over-time.component.html',
-  styleUrls: ['./rating-over-time.component.scss']
+  styleUrls: ['./rating-over-time.component.css']
 })
 export class RatingOverTimeComponent implements OnInit {
+
+  constructor(private _actorRepository: ActorRepository, private _actorService: ActorService) { }
+  private static readonly MAX_ACTORS = 2;
+  private selectedActors: Actor[] = [];
+  private actorMovies: Map<Actor, Movie[]> = new Map<Actor, Movie[]>();
+  private actorGraphs: Map<Actor, ActorGraph> = new Map<Actor, ActorGraph>();
   private width = 800;
   private height = 400;
   private margin = { top: 20, right: 200, bottom: 30, left: 80 };
@@ -25,146 +33,283 @@ export class RatingOverTimeComponent implements OnInit {
   private yScaleRevenue: ScaleLinear<number, number, never>;
   private yScaleRevenueElement: d3.Selection<any, any, any, any>;
   private innerElement: d3.Selection<any, any, any, any>;
+  private colorCounter: number = 0;
 
-  constructor(private _actorRepository: ActorRepository) { }
+  private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
 
-  appendActorGraph(actor: Actor, actorMovies: Movie[], index: number): void {
-    let birth = new Date(actor.birth, 0, 0);
-    let age_div = +new Date(actor.birth + 100, 0, 0) - +new Date(actor.birth, 0, 0);
-    const data = this.innerElement.append('g').selectAll('g')
-      .data(actorMovies)
-      .join('g')
-      .attr('transform', m => `translate(${this.xScale(100 * (+new Date(m.year, m.month, m.day) - +birth) / age_div)}, ${this.upper_graph_height})`);
+  movingAverageLeft(data: number[], amount: number) {
+    return data.map((_, i, arr) => {
+      const start = Math.max(0, i - amount);
+      const end = Math.min(i + 1, arr.length);
+      const subset = arr.slice(start, end);
+      const sum = subset.reduce((a, b) => a + b);
+      return sum / subset.length;
+    });
+  }
 
-    let c = d3.color(d3.schemeSet2[index]);
-    let mainColor = c.copy();
-    let areaColor = c.copy();
+  updateActorGraphs(transitionTimeMultiplier = 1): void {
+    this.selectedActors.forEach(actor =>{
+      if (this.actorGraphs.has(actor)) {
+        const birth = new Date(actor.birth, 0, 0);
+        const ageDiff = +new Date(actor.birth + 100, 0, 0) - +new Date(actor.birth, 0, 0);
+        const actorGraph = this.actorGraphs.get(actor);
+        actorGraph.element.selectAll('g')
+          .data(actorGraph.dataPoints)
+          .transition()
+          .attr('transform', (m: MovieAveragePlot) => `translate(${this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff)}, ${this.upper_graph_height})`)
+          .attr('opacity', (m: MovieAveragePlot) => +m.in_range)
+          .duration(transitionTimeMultiplier * 1000);
+
+        actorGraph.c2
+          .transition()
+          .attr('cy', (m: MovieAveragePlot) => this.yScaleRevenue(+m.in_range * m.movie.revenue))
+          .duration(transitionTimeMultiplier * 1000);
+
+        actorGraph.l2
+          .transition()
+          .attr('y2', (m: MovieAveragePlot) => this.yScaleRevenue(+m.in_range * m.movie.revenue))
+          .duration(transitionTimeMultiplier * 1000);
+
+
+        actorGraph.areaRating.x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff));
+        actorGraph.areaRevenue.x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff));
+
+        actorGraph.areaRating.y1(m => this.yScaleRating(+m.in_range * m.avg_rating / 2));
+        actorGraph.areaRevenue.y1(m => this.yScaleRevenue(+m.in_range * m.avg_revenue) + this.upper_graph_height);
+
+
+        actorGraph.topAreaGraphElement
+          .transition()
+          .attr('d', actorGraph.areaRating)
+          .duration(transitionTimeMultiplier * 1000);
+
+        actorGraph.bottomAreaGraphElement
+          .transition()
+          .attr('d', actorGraph.areaRevenue)
+          .duration(transitionTimeMultiplier * 1000);
+      }
+    });
+  }
+
+  appendActorGraph(actor: Actor): void {
+    const actorMovies = this.actorMovies.get(actor);
+    const birth = new Date(actor.birth, 0, 0);
+    const ageDiff = +new Date(actor.birth + 100, 0, 0) - +new Date(actor.birth, 0, 0);
+    const actorGraphElement = this.innerElement.append('g');
+
+    const amount = 5;
+    const moviesSorted = actorMovies.sort((a, b) => +new Date(a.year, a.month, a.day) - +new Date(b.year, b.month, b.day));
+    const averageRatings = this.movingAverageLeft(moviesSorted.map(m => m.vote_average), amount);
+    const averageRevenues = this.movingAverageLeft(moviesSorted.map(m => m.revenue), amount);
+
+    const plotPoints = moviesSorted.map((m, i) => new MovieAveragePlot(m, averageRatings[i], averageRevenues[i]));
+
+    this.colorCounter += 1;
+    const index = this.colorCounter % d3.schemeSet2.length;
+    const c = d3.color(d3.schemeSet2[index]);
+    const mainColor = c.copy();
+    const areaColor = c.copy();
     areaColor.opacity = 0.1;
-    let stemColor = c.copy();
+    const stemColor = c.copy();
     stemColor.opacity = 0.75;
-    let stemTopColor = c.copy().darker();
-    
-    
+    const stemTopColor = c.copy().darker();
+
+    // Upper area
+    const areaRating = d3.area<MovieAveragePlot>()
+      .x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff))
+      .y1(m => this.yScaleRating(m.avg_rating / 2))
+      .y0(this.upper_graph_height)
+      .curve(d3.curveBasis);
+    const topAreaGraphElement = actorGraphElement.append('path')
+      .datum(plotPoints)
+      .attr('fill', areaColor.formatRgb())
+      .attr('stroke', mainColor.formatRgb())
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', 2)
+      .attr('d', areaRating);
+
+    // Bottom area
+    const areaRevenue = d3.area<MovieAveragePlot>()
+      .x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff))
+      .y1(m => this.yScaleRevenue(m.avg_revenue) + this.upper_graph_height)
+      .y0(this.upper_graph_height)
+      .curve(d3.curveBasis)
+    const bottomAreaGraphElement = actorGraphElement.append('path')
+      .datum(plotPoints)
+      .attr('fill', areaColor.formatRgb())
+      .attr('stroke', mainColor.formatRgb())
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', 2)
+      .attr('d', areaRevenue);
+
+
+    const Tooltip = d3.select('#movie-tooltip')
+
+    const stemOver = (_, d: MovieAveragePlot) => {
+      Tooltip
+        .html(`${d.movie.title} (${d.movie.year})`)
+        .style('opacity', 1);
+    }
+
+    const stemMove = (event) => {
+      Tooltip
+        .style('left', (event.layerX + 20) + 'px')
+        .style('top', (event.layerY) + 'px')
+    }
+
+    const stemOut = (_) => {
+      Tooltip
+        .style('opacity', 0);
+    }
+
+    const data = actorGraphElement.selectAll('g')
+      .data(plotPoints)
+      .join('g')
+      .attr('transform', m => `translate(${this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff)}, ${this.upper_graph_height})`)
+      .on('mouseover', stemOver)
+      .on('mousemove', stemMove)
+      .on('mouseout', stemOut);
+
+
+
+
+
+
     data.append('line')
+      // .attr('id', "topline")
       .transition()
-      .attr('y1', m => this.yScaleRating(m.vote_average / 2) - this.upper_graph_height)
+      .attr('y1', m => this.yScaleRating(m.movie.vote_average / 2) - this.upper_graph_height)
       .duration(1000)
       .attr('y2', this.yScaleRating(0) - this.upper_graph_height)
-      .attr('stroke', stemColor.formatRgb())
-      .attr('stroke-dasharray', 1)
+      .attr('stroke', stemColor.formatRgb());
 
     data.append('circle')
+      // .attr('id', "topcircle")
       .transition()
-      .attr('cy', m => this.yScaleRating(m.vote_average / 2) - this.upper_graph_height)
+      .attr('cy', m => this.yScaleRating(m.movie.vote_average / 2) - this.upper_graph_height)
       .duration(1000)
-      .attr('r', '3')
-      .attr('fill', areaColor.formatRgb())
-      .attr('stroke', stemTopColor.formatRgb())
-
-    data.append('line')
-      .transition()
-      .attr('y2', m => this.yScaleRevenue(m.revenue))
-      .duration(1000)
-      .attr('y1', this.yScaleRevenue(0))
-      .attr('stroke', stemColor.formatRgb())
-      .attr('stroke-dasharray', 1)
-
-    data.append('circle')
-      .transition()
-      .attr('cy', m => this.yScaleRevenue(m.revenue))
-      .duration(1000)
-      .attr('r', '3')
+      .attr('r', '4')
       .attr('fill', areaColor.formatRgb())
       .attr('stroke', stemTopColor.formatRgb());
 
-    const moviesSorted = actorMovies.sort((a, b) => +new Date(a.year, a.month, a.day) - +new Date(b.year, b.month, b.day))
-        
-    // Upper area
-    this.innerElement.append("path")
-      .datum(moviesSorted)
-      .attr("fill", areaColor.formatRgb())
-      .attr("stroke", mainColor.formatRgb())
-      .attr("stroke-width", 1.5)
-      .attr("d", d3.area<Movie>()
-        .x(m => this.xScale(100 * (+new Date(m.year, m.month, m.day) - +birth) / age_div))
-        .y1(m => this.yScaleRating(m.vote_average / 2))
-        .y0(this.upper_graph_height)
-        .curve(d3.curveMonotoneX)
-      );
 
-    // Bottom area
-    this.innerElement.append("path")
-      .datum(moviesSorted)
-      .attr("fill", areaColor.formatRgb())
-      .attr("stroke", mainColor.formatRgb())
-      .attr("stroke-width", 1.5)
-      .attr("d", d3.area<Movie>()
-        .x(m => this.xScale(100 * (+new Date(m.year, m.month, m.day) - +birth) / age_div))
-        .y1(m => this.yScaleRevenue(m.revenue) + this.upper_graph_height )
-        .y0(this.upper_graph_height)
-        .curve(d3.curveMonotoneX)
-      );
+    let l2 = data.append('line')
+      // .attr('id', "botline")
+      .attr('y2', m => this.yScaleRevenue(m.movie.revenue))
+      .attr('y1', this.yScaleRevenue(0))
+      .attr('stroke', stemColor.formatRgb());
+
+    let c2 = data.append('circle')
+      // .attr('id', "botcircle")
+      .attr('cy', m => this.yScaleRevenue(m.movie.revenue))
+      .attr('r', '4')
+      .attr('fill', areaColor.formatRgb())
+      .attr('stroke', stemTopColor.formatRgb());
+
 
       //  Update legend
-    this.legendElement.append('rect')
-      .attr('x', 20 + this.graph_width  )
-    .attr('y',  30 * index)
+    const legendGroup = this.legendElement.append('g')
+      .attr('transform', `translate(${20 + this.graph_width}, ${30 * index})`)
+
+
+    legendGroup.append('rect')
     .attr('width', 20)
     .attr('height', 20)
     .attr('fill', mainColor.formatRgb())
     .attr('stroke', stemTopColor.formatRgb())
-    this.legendElement.append('text')
-      .attr('x', 20 + this.graph_width + 30)
-      .attr('y',  30 * index + 10)
+    legendGroup.append('text')
+      .attr('x',  30)
+      .attr('y',  10)
       .attr('width', 100)
       .attr('height', 20)
       .attr('text-anchor', 'start')
       .attr('fill', mainColor.formatRgb())
       .attr('align', 'center')
       .text(actor.name)
+
+    this.actorGraphs.set(actor, new ActorGraph(
+      actorGraphElement,
+      areaRating,
+      areaRevenue,
+      topAreaGraphElement,
+      bottomAreaGraphElement,
+      l2,
+      c2,
+      legendGroup,
+      plotPoints,
+      c));
   }
 
-  lookupAndAddActor(name: string, index: number): void {
-    this._actorRepository.getActorByName(name).subscribe(actor => {
+  deleteActorGraph(actor: Actor) {
+    const graph = this.actorGraphs.get(actor).element;
+    graph
+      .attr('fill-opacity', 1)
+      .attr('stroke-opacity', 1)
+      .transition()
+      .attr('fill-opacity', 0)
+      .attr('stroke-opacity', 0)
+      .duration(300)
+      .remove();
+  }
+
+  deleteActorData(actor: Actor) {
+    this.actorMovies.delete(actor);
+    this.selectedActors.splice(0, 1);
+    this.updateScales();
+    this.updateActorGraphs();
+  }
+
+  AddActor(actor: Actor): void {
+    if (this.selectedActors.find(a => a._id == actor._id) == null) {
+      this.selectedActors.push(actor);
       forkJoin(this._actorRepository.getMovies(actor.movies)).subscribe(movies => {
-        this.updateScales(actor, movies);
-        this.appendActorGraph(actor, movies, index);
-      })
-    }, (err) => {
-      console.error(err);
-    });
+        this.actorMovies.set(actor, movies);
+        this.appendActorGraph(actor);
+        this.updateScales();
+        this.updateActorGraphs();
+        if (this.selectedActors.length > RatingOverTimeComponent.MAX_ACTORS) {
+          const actorToRemove = this.selectedActors[0];
+          this.deleteActorGraph(actorToRemove);
+          this.deleteActorData(actorToRemove);
+        }
+      });
+    }
   }
 
-  updateScales(actor: Actor, movies: Movie[]): void {
-    let minYear = d3.min(movies, m => m.year - actor.birth);
-    let maxYear = d3.max(movies, m => m.year - actor.birth);
-    let maxRevenue = d3.max(movies, m => m.revenue);
+  updateScales(transitionTimeMultiplier = 1): void {
+    const allMovies = this.selectedActors.filter(a => this.actorGraphs.has(a)).map(a => this.actorGraphs.get(a).dataPoints).flat();
 
-    this.xScale.domain([
-      Math.min(this.xScale.domain()[0], minYear),
-      Math.max(this.xScale.domain()[1], maxYear)]
-    );
+    const minYear = d3.min(
+      this.selectedActors.filter(a => this.actorGraphs.has(a)),
+      a => d3.min(
+        this.actorGraphs.get(a).dataPoints.filter(m => m.in_range),
+        m => (m.movie.year - a.birth)));
 
-    // No need to update this one as it is clearly bounded
-    // this.yScaleRating.domain([
-    //   0,
-    //   Math.max(this.yScaleRating.domain()[1], maxRating)]
-    // );
-    console.log(Math.max(this.yScaleRevenue.domain()[1], maxRevenue))
+    const maxYear = d3.max(
+      this.selectedActors.filter(a => this.actorGraphs.has(a)),
+      a => d3.max(
+        this.actorGraphs.get(a).dataPoints.filter(m => m.in_range),
+        m => (m.movie.year - a.birth)));
 
-    this.yScaleRevenue.domain([
-      0, // Makes animation nicer
-      Math.max(this.yScaleRevenue.domain()[1], maxRevenue)]
-    );
+    const maxRevenue = d3.max(allMovies.filter(m => m.in_range), m => m.movie.revenue);
 
+    this.xScale.domain([minYear, maxYear]);
+
+    if (maxRevenue) {
+      this.yScaleRevenue.domain([0, maxRevenue]);
+    }
     this.yScaleRevenueElement
-      .transition().duration(1000)
+      .transition().duration(transitionTimeMultiplier * 1000)
       .call(d3.axisLeft(this.yScaleRevenue).ticks(5, '$,.0s'));
 
     this.xScaleElement
-      .transition().duration(1000)
+      .transition().duration(transitionTimeMultiplier * 1000)
       .call(d3.axisBottom(this.xScale));
 
+  }
+
+  updateLegend(): void {
+    this.legendElement
   }
 
   ngOnInit(): void {
@@ -181,12 +326,13 @@ export class RatingOverTimeComponent implements OnInit {
       .domain([0, 100000000])
       .range([0, this.bottom_graph_height]);
 
-    const svg = d3.select('p#test').append('svg')
+    const svg = d3.select('p#rating').append('svg')
       .attr('width', this.width)
       .attr('height', this.height)
       .attr('font-family', 'sans-serif')
       .attr('font-size', '10')
       .attr('text-anchor', 'end');
+    this.svg = svg;
 
     this.innerElement = svg.append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)
@@ -214,77 +360,83 @@ export class RatingOverTimeComponent implements OnInit {
 
 
 
-    const actors: string[] = ['Bruce Willis', 'Will Smith'];
-    actors.forEach((a, i) => {
-      this.lookupAndAddActor(a, i);
-    });
 
-    // this._actorRepository.getActorByName(a1).subscribe(actor => {
-    //   // let age = actor - (new Date().getFullYear())
-    //   forkJoin(this._actorRepository.getMovies(actor.movies)).subscribe(movies => {
-        
-    //     console.log(movies)
-    //     // Get min/max for both actors
-    //     // let min_age = 20;
-    //     // let max_age = 60;
-    //     // let min_rev = 0;
-    //     // let max_rev = d3.max(movies, m => m.revenue) * 1.1;
-        
-    //     // let min_rating = 0;
-    //     // let max_rating = 5;
-        
-
-
-
-
-
-
-    //   })
-    //   }, (err) => {
-    //     console.error(err)
-    //   });
-      // forkJoin(this._actorRepository.getMovies(actor.movies.map(m => m.id))).subscribe((res) => {
-      //   console.log(res);
-      // });
-
-
-
-    // this.getActor(actorName).subscribe(data => {
-      
-    // // Should use dates!
-    // const x = d3.scaleTime()
-    //   .domain([1900, 2020])
-    //   .range([0, 100]);
-
-
-    // const height = 420;
-    // const y = d3.scaleLinear()
-    //   .domain([0, d3.max(movies, m => m.rating)])
-    //   .range([0, height]);
-
-
-    // const svg = d3.select('p#test').append('svg')
-    //   .attr('width', x.range()[1])
-    //   .attr('height', height)
-    //   .attr('font-family', 'sans-serif')
-    //   .attr('font-size', '10')
-    //   .attr('text-anchor', 'end');
-
-    // const bar = svg.selectAll('g')
-    //   .data(movies)
-    //   .join('g')
-    //   .attr('transform', m => `translate(${new Date(x(m.year), 0, 0)}, )`);
-
-    // bar.append('rect')
-    //   .attr('fill', 'red')
-    //   .attr('height', m => y(m.rating))
-    //   .attr('width', 10);
-
-    // bar.append('text')
-    //   .attr('fill', 'white')
-    //   .attr('x', d => x(d.value) - 3)
-    //   .attr('y', y.bandwidth() / 2)
-    //   .attr('dy', '0.35em')
-    //   .text(d => d.name);
+    this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
+    this._actorService.addTimeRangeHandler(this.timeRangeChanged.bind(this));
   }
+
+  actorSelected(evtdata) {
+    this.AddActor(evtdata);
+  }
+
+  timeRangeChanged(leftBound, rightBound) {
+    this.selectedActors.forEach(actor => {
+      if (this.actorGraphs.has(actor)) {
+        this.actorGraphs.get(actor).dataPoints.forEach(moviePoint => {
+          const year = moviePoint.movie.year;
+          if (year > rightBound || year < leftBound) {
+            moviePoint.in_range = false;
+          } else {
+            moviePoint.in_range = true;
+          }
+        });
+      }
+    });
+    this.updateScales(0.15);
+    this.updateActorGraphs(0.15);
+  }
+}
+
+class MovieAveragePlot {
+  constructor(
+    movie: Movie,
+    avg_rating: number,
+    avg_revenue: number
+  ) { 
+    this.movie = movie;
+    this.avg_rating = avg_rating;
+    this.avg_revenue = avg_revenue;
+    this.in_range = true;
+  }
+  movie: Movie;
+  avg_rating: number;
+  avg_revenue: number;
+  in_range: boolean;
+}
+
+
+class ActorGraph {
+  constructor(
+    element: d3.Selection<any, MovieAveragePlot, any, any>,
+    areaRating: d3.Area<MovieAveragePlot>,
+    areaRevenue: d3.Area<MovieAveragePlot>,
+    topAreaGraphElement: d3.Selection<any, any, any, any>,
+    bottomAreaGraphElement: d3.Selection<any, any, any, any>,
+    l2: d3.Selection<any, any, any, MovieAveragePlot>,
+    c2: d3.Selection<any, any, any, MovieAveragePlot>,
+    legendElement: d3.Selection<any, any, any, any>,
+    dataPoints: MovieAveragePlot[],
+    baseColor: d3.RGBColor | d3.HSLColor
+  ) {
+    this.element = element;
+    this.areaRating = areaRating;
+    this.areaRevenue = areaRevenue;
+    this.topAreaGraphElement = topAreaGraphElement;
+    this.bottomAreaGraphElement = bottomAreaGraphElement;
+    this.dataPoints = dataPoints;
+    this.baseColor = baseColor;
+    this.l2 = l2;
+    this.c2 = c2;
+    this.legendElement = legendElement;
+  }
+  element: d3.Selection<any, any, any, any>;
+  areaRating: d3.Area<MovieAveragePlot>;
+  areaRevenue: d3.Area<MovieAveragePlot>;
+  topAreaGraphElement: d3.Selection<any, any, any, any>;
+  bottomAreaGraphElement: d3.Selection<any, any, any, any>;
+  dataPoints: MovieAveragePlot[];
+  baseColor: d3.RGBColor | d3.HSLColor;
+  l2: d3.Selection<any, any, any, MovieAveragePlot>;
+  c2: d3.Selection<any, any, any, MovieAveragePlot>;
+  legendElement: d3.Selection<any, any, any, any>;
 }

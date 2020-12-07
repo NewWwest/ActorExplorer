@@ -57,6 +57,18 @@ app.get('/api/movie/id/:movieId', (req, res) => {
         }
     })
 });
+
+app.get('/api/movie/allMovies', (req, res) => {
+    console.log(`Request for all movies`)
+    movieModel.find({}, (err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    })
+});
+
 app.get('/api/actor/id/:actorId', (req, res) => {
     console.log(`Request for actor by Id:${req.params.actorId}`)
     var id = mongoose.Types.ObjectId(req.params.actorId)

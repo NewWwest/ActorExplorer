@@ -14,6 +14,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 
+import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.component';
+import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 @NgModule({
   declarations: [
     AppComponent,
@@ -21,6 +23,8 @@ import { MatButtonModule } from '@angular/material/button';
     ActorSidePanelComponent,
     RatingOverTimeComponent,
     TopBarComponent,
+    TimeSliderComponent,
+    RadarChartComponent,
   ],
   imports: [
     BrowserModule,
