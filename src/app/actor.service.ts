@@ -46,6 +46,7 @@ export class ActorService implements OnInit {
                 handler(minYear, maxYear);
             }
         });
+    }
     public addResetHandlers(f: any): void {
         this.resetHandlers.push(f);
     }
