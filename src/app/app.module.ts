@@ -12,6 +12,8 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TopBarComponent } from './top-bar/top-bar.component';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.component';
+import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 import { MatButtonModule } from '@angular/material/button';
 
 @NgModule({
@@ -21,6 +23,8 @@ import { MatButtonModule } from '@angular/material/button';
     ActorSidePanelComponent,
     RatingOverTimeComponent,
     TopBarComponent,
+    TimeSliderComponent,
+    RadarChartComponent,
   ],
   imports: [
     BrowserModule,
