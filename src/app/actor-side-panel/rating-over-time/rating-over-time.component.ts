@@ -6,6 +6,7 @@ import { Movie } from 'src/app/models/movie';
 import { Actor } from 'src/app/models/actor';
 import { ScaleLinear, tickStep } from 'd3';
 import { ActorService } from 'src/app/actor.service';
+import { ActorSelection } from 'src/app/actor.selection';
 
 @Component({
   selector: 'app-rating-over-time',
@@ -14,10 +15,8 @@ import { ActorService } from 'src/app/actor.service';
 })
 export class RatingOverTimeComponent implements OnInit {
 
-  constructor(private _actorRepository: ActorRepository, private _actorService: ActorService) { }
-  private static readonly MAX_ACTORS = 2;
-  private selectedActors: Actor[] = [];
-  private actorMovies: Map<Actor, Movie[]> = new Map<Actor, Movie[]>();
+  constructor(private _actorService: ActorService, private _actorSelection:  ActorSelection) { }
+
   private actorGraphs: Map<Actor, ActorGraph> = new Map<Actor, ActorGraph>();
   private width = 800;
   private height = 400;
@@ -33,7 +32,6 @@ export class RatingOverTimeComponent implements OnInit {
   private yScaleRevenue: ScaleLinear<number, number, never>;
   private yScaleRevenueElement: d3.Selection<any, any, any, any>;
   private innerElement: d3.Selection<any, any, any, any>;
-  private colorCounter: number = 0;
 
   private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
 
@@ -48,7 +46,7 @@ export class RatingOverTimeComponent implements OnInit {
   }
 
   updateActorGraphs(transitionTimeMultiplier = 1): void {
-    this.selectedActors.forEach(actor =>{
+    this._actorSelection.getSelectedActors().forEach(actor =>{
       if (this.actorGraphs.has(actor)) {
         const birth = new Date(actor.birth, 0, 0);
         const ageDiff = +new Date(actor.birth + 100, 0, 0) - +new Date(actor.birth, 0, 0);
@@ -92,7 +90,7 @@ export class RatingOverTimeComponent implements OnInit {
   }
 
   appendActorGraph(actor: Actor): void {
-    const actorMovies = this.actorMovies.get(actor);
+    const actorMovies = this._actorSelection.getSelectedActorMovies(actor);
     const birth = new Date(actor.birth, 0, 0);
     const ageDiff = +new Date(actor.birth + 100, 0, 0) - +new Date(actor.birth, 0, 0);
     const actorGraphElement = this.innerElement.append('g');
@@ -104,9 +102,7 @@ export class RatingOverTimeComponent implements OnInit {
 
     const plotPoints = moviesSorted.map((m, i) => new MovieAveragePlot(m, averageRatings[i], averageRevenues[i]));
 
-    this.colorCounter += 1;
-    const index = this.colorCounter % d3.schemeSet2.length;
-    const c = d3.color(d3.schemeSet2[index]);
+    const c = this._actorSelection.getSelectedActorColor(actor);
     const mainColor = c.copy();
     const areaColor = c.copy();
     areaColor.opacity = 0.1;
@@ -209,7 +205,7 @@ export class RatingOverTimeComponent implements OnInit {
 
       //  Update legend
     const legendGroup = this.legendElement.append('g')
-      .attr('transform', `translate(${20 + this.graph_width}, ${30 * index})`)
+      .attr('transform', `translate(${20 + this.graph_width}, ${30 * this.legendElement.selectChildren('g').size()})`)
 
 
     legendGroup.append('rect')
@@ -252,41 +248,18 @@ export class RatingOverTimeComponent implements OnInit {
       .remove();
   }
 
-  deleteActorData(actor: Actor) {
-    this.actorMovies.delete(actor);
-    this.selectedActors.splice(0, 1);
-    this.updateScales();
-    this.updateActorGraphs();
-  }
-
-  AddActor(actor: Actor): void {
-    if (this.selectedActors.find(a => a._id == actor._id) == null) {
-      this.selectedActors.push(actor);
-      forkJoin(this._actorRepository.getMovies(actor.movies)).subscribe(movies => {
-        this.actorMovies.set(actor, movies);
-        this.appendActorGraph(actor);
-        this.updateScales();
-        this.updateActorGraphs();
-        if (this.selectedActors.length > RatingOverTimeComponent.MAX_ACTORS) {
-          const actorToRemove = this.selectedActors[0];
-          this.deleteActorGraph(actorToRemove);
-          this.deleteActorData(actorToRemove);
-        }
-      });
-    }
-  }
-
   updateScales(transitionTimeMultiplier = 1): void {
-    const allMovies = this.selectedActors.filter(a => this.actorGraphs.has(a)).map(a => this.actorGraphs.get(a).dataPoints).flat();
+    const selectedActors = this._actorSelection.getSelectedActors();
+    const allMovies = selectedActors.filter(a => this.actorGraphs.has(a)).map(a => this.actorGraphs.get(a).dataPoints).flat();
 
     const minYear = d3.min(
-      this.selectedActors.filter(a => this.actorGraphs.has(a)),
+      selectedActors.filter(a => this.actorGraphs.has(a)),
       a => d3.min(
         this.actorGraphs.get(a).dataPoints.filter(m => m.in_range),
         m => (m.movie.year - a.birth)));
 
     const maxYear = d3.max(
-      this.selectedActors.filter(a => this.actorGraphs.has(a)),
+      selectedActors.filter(a => this.actorGraphs.has(a)),
       a => d3.max(
         this.actorGraphs.get(a).dataPoints.filter(m => m.in_range),
         m => (m.movie.year - a.birth)));
@@ -361,26 +334,42 @@ export class RatingOverTimeComponent implements OnInit {
 
 
 
-    this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
+    // this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
     this._actorService.addTimeRangeHandler(this.timeRangeChanged.bind(this));
+    this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
 
-  actorSelected(evtdata) {
-    this.AddActor(evtdata);
+  syncActors(): void {
+      // Add new actors
+      this._actorSelection.getSelectedActors().forEach(actor => {
+        if (!this.actorGraphs.has(actor)) {
+          this.appendActorGraph(actor);
+        }
+      });
+
+      // Remove actors no longer in selection
+      this.actorGraphs.forEach((_, actor) => {
+        if (!this._actorSelection.hasActor(actor)) {
+          this.deleteActorGraph(actor);
+          this.actorGraphs.delete(actor);
+        }
+      });
   }
+
+  // actorSelected(evtdata) {
+  //   this.AddActor(evtdata);
+  // }
 
   timeRangeChanged(leftBound, rightBound) {
-    this.selectedActors.forEach(actor => {
-      if (this.actorGraphs.has(actor)) {
-        this.actorGraphs.get(actor).dataPoints.forEach(moviePoint => {
-          const year = moviePoint.movie.year;
-          if (year > rightBound || year < leftBound) {
-            moviePoint.in_range = false;
-          } else {
-            moviePoint.in_range = true;
-          }
-        });
-      }
+    this._actorSelection.getSelectedActors().forEach(actor => {
+      this.actorGraphs.get(actor).dataPoints.forEach(moviePoint => {
+        const year = moviePoint.movie.year;
+        if (year > rightBound || year < leftBound) {
+          moviePoint.in_range = false;
+        } else {
+          moviePoint.in_range = true;
+        }
+      });
     });
     this.updateScales(0.15);
     this.updateActorGraphs(0.15);

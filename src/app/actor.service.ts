@@ -6,6 +6,7 @@ import { Actor } from './models/actor';
 })
 export class ActorService implements OnInit {
     actorSelectedHandlers: any[]=[];
+    actorSelectionChangedhandlers: any[]=[];
     searchForActorHandler: any[]=[];
     resetHandlers: any[]=[];
     timeRangeHandlers: any[]=[];
@@ -22,6 +23,17 @@ export class ActorService implements OnInit {
         this.actorSelectedHandlers.forEach(handler =>{
             if(handler && {}.toString.call(handler) === '[object Function]'){
                 handler(actor);
+            }
+        })
+    }
+
+    public addActorSelectionChangedHandler(f: any): void {
+        this.actorSelectionChangedhandlers.push(f);
+    }
+    public triggerActorSelectionChangedHandlers() {
+        this.actorSelectionChangedhandlers.forEach(handler => {
+            if (handler && {}.toString.call(handler) === '[object Function]') {
+                handler();
             }
         })
     }
