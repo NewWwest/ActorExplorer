@@ -1,15 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
-import { Subject } from 'rxjs';
 import { ActorRepository } from 'src/app/actor.repository';
 import { Movie } from 'src/app/models/movie';
-import {SubjectPosition, thresholdFreedmanDiaconis} from 'd3';
 import { ActorService } from 'src/app/actor.service';
-import { MAT_RIPPLE_GLOBAL_OPTIONS } from '@angular/material/core';
 import { ActorSelection } from 'src/app/actor.selection';
-import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } from 'constants';
 import { Actor } from 'src/app/models/actor';
-import { ElementSchemaRegistry } from '@angular/compiler';
 
 @Component({
   selector: 'app-time-slider',

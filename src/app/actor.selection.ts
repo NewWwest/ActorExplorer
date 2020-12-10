@@ -14,7 +14,7 @@ export class ActorSelection {
         this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
     }
 
-    private static readonly MAX_ACTORS = 3;
+    public static readonly MAX_ACTORS = 3;
     private static readonly SCHEME = d3.schemeSet2;
     private actorData: Map<Actor, ActorData> = new Map<Actor, ActorData>();
     private colorCounter = 0;
