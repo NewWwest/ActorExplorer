@@ -6,6 +6,10 @@ import { Movie } from 'src/app/models/movie';
 import {SubjectPosition, thresholdFreedmanDiaconis} from 'd3';
 import { ActorService } from 'src/app/actor.service';
 import { MAT_RIPPLE_GLOBAL_OPTIONS } from '@angular/material/core';
+import { ActorSelection } from 'src/app/actor.selection';
+import { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } from 'constants';
+import { Actor } from 'src/app/models/actor';
+import { ElementSchemaRegistry } from '@angular/compiler';
 
 @Component({
   selector: 'app-time-slider',
@@ -20,13 +24,14 @@ export class TimeSliderComponent implements OnInit {
   private timeSection;
   private leftHandle;
   private rightHandle;
-  private margin = { top: 10, right: 10, bottom: 40, left: 10 };
+  private actorRegions: d3.Selection<any, any, any, any>;
+  private margin = { top: 40, right: 10, bottom: 40, left: 10 };
   private leftBound: number = this.margin.left;
   private rightBound: number = this.leftBound + 100;
   private timer: d3.Timer;
   
 
-  constructor(private _actorRepository: ActorRepository, private _actorService: ActorService) { }
+  constructor(private _actorRepository: ActorRepository, private _actorService: ActorService, private _actorSelection: ActorSelection) { }
 
   ngOnInit(): void {
     const svg = d3.select('p#slider').append('svg')
@@ -77,69 +82,107 @@ export class TimeSliderComponent implements OnInit {
         .attr('height', d => y(0) - y(d.length));
 
 
+
+      const drag = d3.drag<SVGRectElement, number>()
+        .subject(pointer => this.leftBound  - pointer.x)
+        .on('drag', event => {
+          const d = this.rightBound - this.leftBound;
+          const xLeft = event.x + event.subject;
+          const xRight = event.x + event.subject + d;
+          if (this.canMoveLeftBound(xLeft) && this.canMoveRightBound(xRight)) {
+            this.moveLeftBound(xLeft);
+            this.moveRightBound(xRight);
+          }
+          this.updateBody();
+        });
+        // .on('end', endHandler);
+  
+      const dragLeft = d3.drag<SVGRectElement, number>()
+        .subject(pointer => this.leftBound - pointer.x)
+        .on('drag', event => {
+          if (this.canMoveLeftBound(event.x + event.subject)) {
+            this.moveLeftBound(event.x + event.subject);
+          }
+          this.updateBody();
+        });
+        // .on('end', endHandler);
+  
+      const dragRight = d3.drag<SVGRectElement, number>()
+        .subject(pointer => this.rightBound - pointer.x)
+        .on('drag', event => {
+          if (this.canMoveRightBound(event.x + event.subject)) {
+            this.moveRightBound(event.x + event.subject);
+          }
+          this.updateBody();
+        })
+        // .on('end', endHandler);
+      this.actorRegions = svg.append('g');
+
+      this.timeSection = svg.append('rect')
+        .attr('height', this.height)
+        .attr('fill-opacity', .25)
+        .attr('cursor', 'move')
+        .call(drag);
+  
+      this.leftHandle = svg.append('rect')
+        .attr('height', this.height)
+        .attr('width', this.handleWidth)
+        .attr('fill-opacity', .25)
+        .attr('cursor', 'ew-resize')
+        .call(dragLeft);
+  
+      this.rightHandle = svg.append('rect')
+        .attr('height', this.height)
+        .attr('width', this.handleWidth)
+        .attr('fill-opacity', .25)
+        .attr('cursor', 'ew-resize')
+        .call(dragRight);
+  
+  
+      this.leftHandle.attr('x', this.leftBound);
+      this.rightHandle.attr('x', this.rightBound);
+      this.updateBody();
+      this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
+
       this.timer = d3.interval(endHandler, 100);
     });
 
+  }
 
-
-
-    const drag = d3.drag<SVGRectElement, number>()
-      .subject(pointer => this.leftBound  - pointer.x)
-      .on('drag', event => {
-        const d = this.rightBound - this.leftBound;
-        const xLeft = event.x + event.subject;
-        const xRight = event.x + event.subject + d;
-        if (this.canMoveLeftBound(xLeft) && this.canMoveRightBound(xRight)) {
-          this.moveLeftBound(xLeft);
-          this.moveRightBound(xRight);
-        }
-        this.updateBody();
-      })
-      // .on('end', endHandler);
-
-    const dragLeft = d3.drag<SVGRectElement, number>()
-      .subject(pointer => this.leftBound - pointer.x)
-      .on('drag', event => {
-        if (this.canMoveLeftBound(event.x + event.subject)) {
-          this.moveLeftBound(event.x + event.subject);
-        }
-        this.updateBody();
-      })
-      // .on('end', endHandler);
-
-    const dragRight = d3.drag<SVGRectElement, number>()
-      .subject(pointer => this.rightBound - pointer.x)
-      .on('drag', event => {
-        if (this.canMoveRightBound(event.x + event.subject)) {
-          this.moveRightBound(event.x + event.subject);
-        }
-        this.updateBody();
-      })
-      // .on('end', endHandler);
-
-    this.timeSection = svg.append('rect')
-      .attr('height', this.height)
-      .attr('fill-opacity', .25)
-      .attr('cursor', 'move')
-      .call(drag);
-
-    this.leftHandle = svg.append('rect')
-      .attr('height', this.height)
-      .attr('width', this.handleWidth)
-      .attr('fill-opacity', .25)
-      .attr('cursor', 'ew-resize')
-      .call(dragLeft);
-
-    this.rightHandle = svg.append('rect')
-      .attr('height', this.height)
-      .attr('width', this.handleWidth)
-      .attr('fill-opacity', .25)
-      .attr('cursor', 'ew-resize')
-      .call(dragRight);
-
-    this.leftHandle.attr('x', this.leftBound);
-    this.rightHandle.attr('x', this.rightBound);
-    this.updateBody();
+  syncActors(): void {
+    this.actorRegions.selectAll('rect')
+    .data(this._actorSelection.getSelectedActors(), (actor: Actor) => actor._id)
+    .join(
+    enter => enter.append('rect')
+      .attr('y', this.height)
+      .attr('x', a => this.xScale(d3.min(this._actorSelection.getSelectedActorMovies(a).map(m => m.year))))
+      .attr('width', a => 
+        this.xScale(d3.max(this._actorSelection.getSelectedActorMovies(a).map(m => m.year))) - 
+        this.xScale(d3.min(this._actorSelection.getSelectedActorMovies(a).map(m => m.year)))
+      )
+      .attr('height', 0.25 * this.height / ActorSelection.MAX_ACTORS)
+      .attr('fill-opacity', .35)
+      .attr('fill', a => this._actorSelection.getSelectedActorColor(a).formatRgb())
+      // I think this is a d3 bug: this should automatically trigger in the update according
+      // to various sources (including official docs), but it doesn't, so we have to do it again here!
+      .call(element => element
+        .transition()
+        .attr('y', (_, i) => i * ( 0.27 * this.height) / ActorSelection.MAX_ACTORS)
+        .duration(1000)),
+    update => update
+      .call(element => element
+        .transition()
+        .attr('y', (_, i) => i * ( 0.27 * this.height) / ActorSelection.MAX_ACTORS)
+        .duration(1000)),
+    exit => exit.call(element => element
+        .transition()
+        .attr('y', -10)
+        .attr('fill-opacity', 0)
+        .duration(1000)
+        .call(thing => thing.remove())
+        )
+      
+    );
   }
 
   updateBody(): void {
@@ -164,6 +207,8 @@ export class TimeSliderComponent implements OnInit {
     this.rightBound = value;
     this.rightHandle.attr('x', this.rightBound);
   }
+
+
 // function draw_histogram_from_buckets(buckets, x, opts = {}) {
 //   const width = opts.width || 300,
 //     height = opts.height || 200,
