@@ -155,7 +155,10 @@ export class RatingOverTimeComponent implements OnInit {
 
     const stemOut = (_) => {
       Tooltip
-        .style('opacity', 0);
+        .style('left',  '0px')
+        .style('top', '0px')
+        .style('opacity', 0)
+        .html('');
     }
 
     const data = actorGraphElement.selectAll('g')
