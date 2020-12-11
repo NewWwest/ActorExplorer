@@ -6,6 +6,7 @@ import { Actor } from './models/actor';
 })
 export class ActorService implements OnInit {
     actorSelectedHandlers: any[]=[];
+    actorSelectionChangedhandlers: any[]=[];
     searchForActorHandler: any[]=[];
     resetHandlers: any[]=[];
     timeRangeHandlers: any[]=[];
@@ -26,6 +27,17 @@ export class ActorService implements OnInit {
         })
     }
 
+    public addActorSelectionChangedHandler(f: any): void {
+        this.actorSelectionChangedhandlers.push(f);
+    }
+    public triggerActorSelectionChangedHandlers() {
+        this.actorSelectionChangedhandlers.forEach(handler => {
+            if (handler && {}.toString.call(handler) === '[object Function]') {
+                handler();
+            }
+        })
+    }
+
     public addSearchForActorHandler(f: any): void {
         this.searchForActorHandler.push(f);
     }
@@ -37,16 +49,6 @@ export class ActorService implements OnInit {
         })
     }
 
-    public addResetHandlers(f: any): void {
-        this.resetHandlers.push(f);
-    }
-    public triggerResetHandlers(){
-        this.resetHandlers.forEach(handler =>{
-            if(handler && {}.toString.call(handler) === '[object Function]'){
-                handler();
-            }
-        })
-    }
     public addTimeRangeHandler(f: any): void {
         this.timeRangeHandlers.push(f);
     }
@@ -56,5 +58,15 @@ export class ActorService implements OnInit {
                 handler(minYear, maxYear);
             }
         });
+    }
+    public addResetHandlers(f: any): void {
+        this.resetHandlers.push(f);
+    }
+    public triggerResetHandlers(){
+        this.resetHandlers.forEach(handler =>{
+            if(handler && {}.toString.call(handler) === '[object Function]'){
+                handler();
+            }
+        })
     }
 }
