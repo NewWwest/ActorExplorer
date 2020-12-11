@@ -10,6 +10,8 @@ import { ActorService } from '../actor.service';
 export class TopBarComponent {
   actorNames: string[] = [];
   searchBoxText: string | null;
+  skeletonShown: boolean = false;
+
   constructor(
     private _actorRepository: ActorRepository,
     private _actorService: ActorService) { }
@@ -36,5 +38,10 @@ export class TopBarComponent {
     }, (err) => {
       console.error(err);
     });
+  }
+
+  swapSkeleton(e) {
+    this.skeletonShown = !this.skeletonShown;
+    this._actorService.triggerShowOrHideSkeletonHandlers(this.skeletonShown);
   }
 }

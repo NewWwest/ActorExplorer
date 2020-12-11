@@ -15,12 +15,18 @@ export class ActorNetworkComponent implements OnInit {
   expandConstant = 5;
   nodeCollisionRadius = 20;
   minNodeRadius = 10;
+  sideEgdeOpacity = 0.2;
+  edgeForce = 0.05;
+  sideEdgeForce = 0.001;
 
   startingActor = "Zac Efron"
   actors: Actor[] = [];
   movies: Movie[] = [];
   nodes: ActorNode[] = [];
   edges: MovieLink[] = [];
+
+  skeletonNodes: ActorNode[] = [];
+  skeletonEdges: MovieLink[] = [];
 
   edgeTooltip: any = null;
   svg: any = null;
@@ -42,16 +48,17 @@ export class ActorNetworkComponent implements OnInit {
     this.sizeSvg();
 
     this._actorRepository.getActorByName(this.startingActor).subscribe(actor => {
-      this.addActor(actor, this.width / 2, this.height / 2);
+      this.addActor(actor, this.width / 2, this.height / 2, null);
       this.createForceNetwork();
     }, (err) => {
       console.error(err);
     });
     this._actorService.addSearchForActorHandler(this.addOrSelectNewActor.bind(this));
     this._actorService.addResetHandlers(this.reset.bind(this));
+    this._actorService.addShowOrHideSkeletonHandlers(this.showOrHideSkeleton.bind(this));
   }
 
-  addActor(actor: Actor, x: number, y: number) {
+  addActor(actor: Actor, x: number, y: number, parentActorId: string) {
     if (this.simulation)
       this.simulation.stop();
 
@@ -64,7 +71,8 @@ export class ActorNetworkComponent implements OnInit {
         y: x ? y + Math.random() * 10 - 5 : null,
         movieIds: actor.movies,
         movieCount: actor.movies.length,
-        skeletonNode: false
+        skeletonNode: false,
+        parentActorId: parentActorId
       });
     }
   }
@@ -101,7 +109,8 @@ export class ActorNetworkComponent implements OnInit {
               movieTitles: [movie.title],
               width: 1,
               source: a1,
-              target: a2
+              target: a2,
+              isSkeleton: false,
             })
           }
         }
@@ -126,8 +135,17 @@ export class ActorNetworkComponent implements OnInit {
   createForceNetwork() {
     this.addMissingEdges();
     this.simulation = d3.forceSimulation<ActorNode, MovieLink>(this.nodes)
-      .force('collide', d3.forceCollide().radius((n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)) + this.nodeCollisionRadius))
-      .force("link", d3.forceLink(this.edges))
+      .force('collide', d3.forceCollide().radius((n: ActorNode) => {
+        let distance = n.skeletonNode ? this.nodeCollisionRadius * 3 : this.nodeCollisionRadius;
+        return Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)) + distance
+      }))
+      .force("link", d3.forceLink(this.edges).strength((e: MovieLink) => {
+        if (this.isSideEdge(e))
+          return this.sideEdgeForce;
+        else {
+          return this.edgeForce;
+        }
+      }))
       .force("charge", d3.forceManyBody().strength(-10))
       .force("center", d3.forceCenter(this.width / 2, this.height / 2))
       .on("tick", this.updateNetwork.bind(this));
@@ -148,15 +166,18 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   expandNode(e) {
+    if (this.simulation)
+      this.simulation.stop()
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
-    let node = this.nodes.find(a => a.actor._id == actorId)
-
+    let node = this.nodes.find(a => a.actor._id == actorId);
+    if (this.skeletonNodes.find(n => n.actor._id == actorId) == null) {
+      this.skeletonNodes.push(node);
+    }
     this.selectNode(actorId);
     this.nodes.forEach(n => { n.fx = null; n.fy = null })
     node.fx = node.x;
     node.fy = node.y;
-
     this._actorService.triggerActorSelectedHandlers(actor);
     this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
       for (let i = 0; i < movies.length; i++) {
@@ -164,26 +185,34 @@ export class ActorNetworkComponent implements OnInit {
           this.movies.push(movies[i])
         }
       }
-      let toBeAdded = this.selectActorIdsToAdd(movies);
-      if (toBeAdded.length > 0) {
-        let observables: Observable<Actor>[] = toBeAdded.map(id => this._actorRepository.getActorById(id));
-        observables.forEach(o => o.subscribe(a => {
-          this.addActor(a, node ? node.x : null, node ? node.y : null);
-          this.createForceNetwork();
-        }
-        ));
-        // forkJoin(observables).subscribe(x => {
-        //   if (this.simulation)
-        //     this.simulation.stop()
-        //   x.forEach(a => {
-        //     this.addActor(a, node ? node.x : null, node ? node.y : null);
-        //   })
-        //   this.createForceNetwork();
-        // });
-      }
-      else {
+      let actorsWithColabs = this.selectActorIdsToAdd(movies);
+      if (actorsWithColabs.length < 0) {
         this.createForceNetwork();
       }
+      let ids: string[] = actorsWithColabs.map(a => a.actorId);
+      this._actorRepository.getActors(ids).subscribe(newActors => {
+        newActors.forEach(newActor => {
+          actorsWithColabs.find(aaa => aaa.actorId == newActor._id).actor = newActor;
+        });
+        actorsWithColabs.sort((l: any, r: any) => {
+          if (l.count > r.count)
+            return -1;
+          if (l.count < r.count)
+            return 1;
+          if (l.actor.movies.length > r.actor.movies.length)
+            return -1;
+          if (l.actor.movies.length < r.actor.movies.length)
+            return 1;
+
+          return 0;
+        });
+
+        let limit = actorsWithColabs.splice(0, this.expandConstant);
+        limit.forEach(a => {
+          this.addActor(a.actor, node.x, node.y, actorId);
+        })
+        this.createForceNetwork();
+      });
     }, (err) => {
       console.error(err);
     });
@@ -244,7 +273,7 @@ export class ActorNetworkComponent implements OnInit {
       this.createForceNetwork();
     }
     else {
-      this.addActor(actor, this.width / 2, this.height / 2);
+      this.addActor(actor, this.width / 2, this.height / 2, null);
       this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
         for (let i = 0; i < movies.length; i++) {
           if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
@@ -263,12 +292,12 @@ export class ActorNetworkComponent implements OnInit {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
   }
 
-  selectActorIdsToAdd(movies: Movie[]): string[] {
+  selectActorIdsToAdd(movies: Movie[]): { actorId: string, count: number, actor: Actor }[] {
     let dict = {};
     for (let i = 0; i < movies.length; i++) {
       for (let j = 0; j < movies[i].actors.length; j++) {
         let id = movies[i].actors[j]
-        if (dict[id] == null) {
+        if (dict[id] != null) {
           dict[id] += 1;
         }
         else {
@@ -276,18 +305,18 @@ export class ActorNetworkComponent implements OnInit {
         }
       }
     }
-    let toBeSorted = Object.keys(dict).map(k => { return { actorId: k, count: dict[k] } });
-    toBeSorted.sort((a, b) => a.count < b.count ? -1 : (a.count > b.count ? 1 : 0))
-
-    let toBeAdded = [];
-    for (let i = 0; i < toBeSorted.length; i++) {
-      if (this.actors.find(a => toBeSorted[i].actorId == a._id) == null) {
-        toBeAdded.push(toBeSorted[i].actorId);
-        if (toBeAdded.length >= this.expandConstant)
-          break;
+    let actorsWithColabs = Object.keys(dict).map(k => { return { actorId: k, count: dict[k], actor: null } });
+    let actorsWithColabsFiltered = [];
+    for (let i = 0; i < actorsWithColabs.length; i++) {
+      if (this.actors.find(a => actorsWithColabs[i].actorId == a._id) == null) {
+        actorsWithColabsFiltered.push(actorsWithColabs[i]);
       }
     }
-    return toBeAdded;
+    return actorsWithColabsFiltered;
+  }
+
+  isSideEdge(e: any) {
+    return e.source.parentActorId != e.target.actor._id && e.target.parentActorId != e.source.actor._id;
   }
 
   addAndStyleEdges() {
@@ -302,6 +331,12 @@ export class ActorNetworkComponent implements OnInit {
       .append("line")
       .attr("class", "core")
       .style("stroke-width", (e) => `${e.width}px`)
+      .style("opacity", (e: MovieLink) => {
+        if (this.isSideEdge(e))
+          return this.sideEgdeOpacity;
+        else
+          return 1;
+      })
       .style("stroke", "black")
       .style("pointer-events", "none");
 
@@ -324,11 +359,6 @@ export class ActorNetworkComponent implements OnInit {
       .on("mouseover", this.edgeOver.bind(this))
       .on("mouseout", this.edgeOut.bind(this))
       .on("mousemove", this.edgeMove.bind(this));
-
-    d3.select("svg").selectAll("line.skeleton")
-      .style("opacity", (e: any) => {
-        return e.source.skeletonNode && e.target.skeletonNode ? 0.4 : 0
-      });
   }
 
   addAndStyleNodes() {
@@ -339,7 +369,8 @@ export class ActorNetworkComponent implements OnInit {
       .attr("class", "node")
       .on("click", this.expandNode.bind(this))
       .on("mouseover", this.nodeOver.bind(this))
-      .on("mouseout", this.nodeOut.bind(this));
+      .on("mouseout", this.nodeOut.bind(this))
+      .call(d3.drag().on("drag", this.dragged.bind(this)));
 
     nodeEnter.append("circle")
       .attr("r", (n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)))
@@ -369,6 +400,18 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
   }
 
+  dragged(evt, node) {
+    if (this.simulation)
+      this.simulation.stop()
+    node.x = evt.x;
+    node.y = evt.y
+    if (node.fx != null)
+      node.fx = evt.x;
+    if (node.fy != null)
+      node.fy = evt.y;
+    this.simulation.restart();
+  }
+
   updateNetwork() {
     d3.select("svg").selectAll("line")
       .attr("x1", function (d: any) { return d.source.x })
@@ -381,7 +424,7 @@ export class ActorNetworkComponent implements OnInit {
         return "translate(" + n.x + "," + n.y + ")"
       });
   }
-  
+
   reset() {
     if (this.simulation)
       this.simulation.stop();
@@ -397,8 +440,13 @@ export class ActorNetworkComponent implements OnInit {
     this.movies = [];
     this.nodes = [];
     this.edges = [];
+    this.skeletonNodes = [];
     if (this.simulation)
       this.simulation.restart();
+  }
+
+  showOrHideSkeleton(skeletonShown: boolean) {
+    console.error(skeletonShown);
   }
 }
 
@@ -408,6 +456,7 @@ interface ActorNode extends d3.SimulationNodeDatum {
   movieIds: string[];
   movieCount: number;
   skeletonNode: boolean;
+  parentActorId?: string;
 }
 
 interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {

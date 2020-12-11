@@ -10,6 +10,7 @@ export class ActorService implements OnInit {
     searchForActorHandler: any[]=[];
     resetHandlers: any[]=[];
     timeRangeHandlers: any[]=[];
+    showOrHideSkeletonHandlers: any[]=[];
     constructor() { }
 
     ngOnInit(): void {
@@ -66,6 +67,17 @@ export class ActorService implements OnInit {
         this.resetHandlers.forEach(handler =>{
             if(handler && {}.toString.call(handler) === '[object Function]'){
                 handler();
+            }
+        })
+    }
+
+    public addShowOrHideSkeletonHandlers(f: any): void {
+        this.showOrHideSkeletonHandlers.push(f);
+    }
+    public triggerShowOrHideSkeletonHandlers(showSkeleton: boolean){
+        this.showOrHideSkeletonHandlers.forEach(handler =>{
+            if(handler && {}.toString.call(handler) === '[object Function]'){
+                handler(showSkeleton);
             }
         })
     }

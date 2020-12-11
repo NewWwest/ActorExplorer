@@ -16,6 +16,7 @@ var db = mongoose
         process.exit();
     });
 var app = express();
+app.use(express.json());
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
@@ -104,6 +105,18 @@ app.get('/api/actor/id/:actorId/movies', (req, res) => {
         })
     })
 }); //
+app.post('/api/actor/list/', (req, res) => {
+    console.log(`Request(POST) for multiple actors by id`)
+    var observables = [];
+    req.body.forEach(x => {
+        var id = mongoose.Types.ObjectId(x);
+        observables.push(actorModel.findById(id, (err, d) => d));
+    })
+    rxjs.forkJoin(observables).subscribe(actors => {
+        res.send(actors);
+        return;
+    })
+});
 app.get('/api/search/actorname/:name', (req, res) => {
     console.log(`Request for actors matching name:${req.params.name}`)
     actorModel.find({ name: { "$regex": req.params.name, $options: "i" } }, (err, data) => {

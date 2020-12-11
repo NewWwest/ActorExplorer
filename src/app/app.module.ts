@@ -16,8 +16,6 @@ import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.
 import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 import { MatButtonModule } from '@angular/material/button';
 
-import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.component';
-import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 @NgModule({
   declarations: [
     AppComponent,

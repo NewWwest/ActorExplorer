@@ -17,6 +17,10 @@ export class ActorRepository {
     getActorByName(name: string): Observable<Actor> {
         return this._http.get<Actor>(`http://localhost:4201/api/actor/name/${name}`);
     }
+
+    getActors(ids: string[]): Observable<Actor[]> {
+        return this._http.post<Actor[]>(`http://localhost:4201/api/actor/list/`, ids);
+    }
     
     getActorById(id: string): Observable<Actor> {
         return this._http.get<Actor>(`http://localhost:4201/api/actor/id/${id}`);
