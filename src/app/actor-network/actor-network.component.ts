@@ -24,9 +24,7 @@ export class ActorNetworkComponent implements OnInit {
   movies: Movie[] = [];
   nodes: ActorNode[] = [];
   edges: MovieLink[] = [];
-
   skeletonNodes: ActorNode[] = [];
-  skeletonEdges: MovieLink[] = [];
 
   edgeTooltip: any = null;
   svg: any = null;
@@ -34,6 +32,7 @@ export class ActorNetworkComponent implements OnInit {
 
   private nodeColor = 'lime';
   private nodeHoverColor = 'green'
+  skeletonShown: boolean = false;
 
   private width = 2000
   private height = 2000
@@ -116,6 +115,21 @@ export class ActorNetworkComponent implements OnInit {
         }
       }
     });
+    for (let i = 0; i < this.skeletonNodes.length - 1; i++) {
+      let source = this.skeletonNodes[i];
+      let target = this.skeletonNodes[i + 1];
+      if (this.edges.find((e: any) => e.source.actor._id == source.actor._id && e.target.actor._id == target.actor._id && e.isSkeleton) == null) {
+        this.edges.push(<MovieLink>{
+          movieIds: [],
+          movieTitles: [],
+          width: 10,
+          source: source,
+          target: target,
+          isSkeleton: true,
+        })
+      }
+
+    }
   }
 
   private sizeSvg(): void {
@@ -140,6 +154,8 @@ export class ActorNetworkComponent implements OnInit {
         return Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)) + distance
       }))
       .force("link", d3.forceLink(this.edges).strength((e: MovieLink) => {
+        if (e.isSkeleton)
+          return 0;
         if (this.isSideEdge(e))
           return this.sideEdgeForce;
         else {
@@ -154,20 +170,16 @@ export class ActorNetworkComponent implements OnInit {
     this.addAndStyleNodes();
 
     this.g.selectAll("g").sort((l: any, r: any) => {
-      if (l.actor == null && r.actor != null) {
+      if (l.actor == null && r.actor != null)
         return -1;
-      }
-      if (l.actor != null && r.actor == null) {
+      if (l.actor != null && r.actor == null)
         return 1;
-      }
       return 0;
     })
     this.simulation.alpha(0.2).restart();
   }
 
   expandNode(e) {
-    if (this.simulation)
-      this.simulation.stop()
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
     let node = this.nodes.find(a => a.actor._id == actorId);
@@ -208,6 +220,8 @@ export class ActorNetworkComponent implements OnInit {
         });
 
         let limit = actorsWithColabs.splice(0, this.expandConstant);
+        if (this.simulation)
+          this.simulation.stop()
         limit.forEach(a => {
           this.addActor(a.actor, node.x, node.y, actorId);
         })
@@ -321,7 +335,7 @@ export class ActorNetworkComponent implements OnInit {
 
   addAndStyleEdges() {
     var edgeEnter = this.g.selectAll("g.edge")
-      .data(this.edges)
+      .data(this.edges.filter(e => !e.isSkeleton))
       .enter()
       .append("g")
       .attr("class", "edge");
@@ -340,14 +354,6 @@ export class ActorNetworkComponent implements OnInit {
       .style("stroke", "black")
       .style("pointer-events", "none");
 
-    //skeleton
-    edgeEnter
-      .append("line")
-      .attr("class", "skeleton")
-      .style("stroke-width", (e) => `${e.width + 5}px`)
-      .style("stroke", "#FF5533")
-      .style("opacity", 0);
-
     //edges shown when hovered
     edgeEnter
       .append("line")
@@ -359,6 +365,18 @@ export class ActorNetworkComponent implements OnInit {
       .on("mouseover", this.edgeOver.bind(this))
       .on("mouseout", this.edgeOut.bind(this))
       .on("mousemove", this.edgeMove.bind(this));
+
+    var skeletonEnter = this.g.selectAll("g.skeleton")
+      .data(this.edges.filter(e => e.isSkeleton), (e) => `S${e.source.actor._id}-${e.target.actor._id}`)
+      .enter()
+      .append("g")
+      .attr("class", "skeleton");
+    skeletonEnter
+      .append("line")
+      .style("stroke-width", (e) => { return `${e.width}px` })
+      .style("opacity", (e)=> this.skeletonShown ? 1 : 0)
+      .style("stroke", "#FF5533")
+      .style("pointer-events", "none");
   }
 
   addAndStyleNodes() {
@@ -436,6 +454,9 @@ export class ActorNetworkComponent implements OnInit {
     d3.selectAll("g.edge").data([]).exit()
       .transition().duration(500).style("opacity", 0)
       .remove();
+      d3.selectAll("g.skeleton").data([]).exit()
+        .transition().duration(500).style("opacity", 0)
+        .remove();
     this.actors = [];
     this.movies = [];
     this.nodes = [];
@@ -446,7 +467,8 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   showOrHideSkeleton(skeletonShown: boolean) {
-    console.error(skeletonShown);
+    this.skeletonShown = skeletonShown;
+    this.g.selectAll("g.skeleton line").style("opacity", (e) => skeletonShown ? 1 : 0)
   }
 }
 
@@ -463,4 +485,5 @@ interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {
   width: number;
   movieIds: string[];
   movieTitles: string[];
+  isSkeleton: boolean;
 }
