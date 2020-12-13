@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
 import { ActorService } from '../actor.service';
-import { Actor } from '../models/actor';
+import { Actor, ActorData } from '../models/actor';
 import { Movie } from '../models/movie';
 
 @Component({
@@ -12,27 +12,37 @@ import { Movie } from '../models/movie';
   styleUrls: ['./actor-network.component.css']
 })
 export class ActorNetworkComponent implements OnInit {
+  ColorDataEnum = ColorDataEnum;
+  colorSchemaEnum = colorSchemaEnum;
   expandConstant = 5;
   nodeCollisionRadius = 20;
   minNodeRadius = 10;
   sideEgdeOpacity = 0.2;
   edgeForce = 0.05;
   sideEdgeForce = 0.001;
+  totalRevenueMaxScale = 7_000_000_000;
+  totalRevenueMinScale = 0;
+  averageRevenueMaxScale = 200_000_000;
+  averageRevenueMinScale = 0;
+  votingMaxScale = 10;
+  votingMinScale = 0;
 
   startingActor = "Zac Efron"
-  actors: Actor[] = [];
+  actors: ActorData[] = [];
   movies: Movie[] = [];
   nodes: ActorNode[] = [];
   edges: MovieLink[] = [];
   skeletonNodes: ActorNode[] = [];
 
   edgeTooltip: any = null;
+  colorLegend: any = null;
   svg: any = null;
   g: any = null;
 
-  private nodeColor = 'lime';
-  private nodeHoverColor = 'green'
   skeletonShown: boolean = false;
+  color: any;
+  colorType: ColorDataEnum = ColorDataEnum.revenueTotal;
+  colorSchema: colorSchemaEnum = colorSchemaEnum.viridis;
 
   private width = 2000
   private height = 2000
@@ -45,10 +55,14 @@ export class ActorNetworkComponent implements OnInit {
   ngOnInit(): void {
     this.edgeTooltip = d3.select("#edge-tooltip")
     this.sizeSvg();
-
+    this.createColor();
     this._actorRepository.getActorByName(this.startingActor).subscribe(actor => {
-      this.addActor(actor, this.width / 2, this.height / 2, null);
-      this.createForceNetwork();
+      this._actorRepository.getActorDataById(actor._id).subscribe(actorData => {
+        this.addActor(actorData, this.width / 2, this.height / 2, null);
+        this.createForceNetwork();
+      }, (err) => {
+        console.error(err);
+      });
     }, (err) => {
       console.error(err);
     });
@@ -57,11 +71,72 @@ export class ActorNetworkComponent implements OnInit {
     this._actorService.addShowOrHideSkeletonHandlers(this.showOrHideSkeleton.bind(this));
   }
 
-  addActor(actor: Actor, x: number, y: number, parentActorId: string) {
+  createColor() {
+    let interpolator = null;
+    let min = 0;
+    let max = 1000;
+    switch (this.colorSchema) {
+      case colorSchemaEnum.magma:
+        interpolator = d3.interpolateMagma;
+        break;
+      case colorSchemaEnum.viridis:
+        interpolator = d3.interpolateViridis;
+        break;
+      case colorSchemaEnum.plasma:
+        interpolator = d3.interpolatePlasma;
+        break;
+      case colorSchemaEnum.heatmap:
+        interpolator = d3.interpolateYlOrRd;
+        break;
+    }
+
+    switch (this.colorType) {
+      case ColorDataEnum.revenueTotal:
+        min = this.totalRevenueMinScale;
+        max = this.totalRevenueMaxScale;
+        break;
+      case ColorDataEnum.revenueAverage:
+        min = this.averageRevenueMinScale;
+        max = this.averageRevenueMaxScale;
+        break;
+      case ColorDataEnum.voteAverage:
+        min = this.votingMinScale;
+        max = this.votingMaxScale;
+        break;
+      case ColorDataEnum.none:
+        this.color = 'lime';
+        break;
+    }
+
+    console.log(d3.range(min, max, max / 100))
+    this.color = d3.scaleSequential().domain([min, max]).interpolator(interpolator);
+    this.colorLegend = d3.select(".color-legend-svg")
+      .attr("width", 700)
+      .attr("height", 20);
+    this.colorLegend.selectAll('rect').data([]).exit().remove()
+    this.colorLegend.selectAll('rect')
+      .data(d3.range(min, max, max / 100))
+      .enter()
+      .append('rect')
+      .attr('x', (d, i) => { return i * 7; })
+      .attr('y', 0)
+      .attr('width', 7)
+      .attr('height', 20)
+      .attr('fill', (d, i) => { return ColorDataEnum.none == this.colorType ? 'lime' : this.color(d); });
+  }
+
+  addActor(actor: ActorData, x: number, y: number, parentActorId: string) {
     if (this.simulation)
       this.simulation.stop();
 
     if (this.actors.find(a => actor._id == a._id) == null) {
+      let revenueTotal = 0;
+      let voteTotal = 0;
+      actor.movieData.forEach(movie => {
+        revenueTotal += movie.revenue;
+        voteTotal += movie.vote_average;
+      })
+
       this.actors.push(actor);
       this.nodes.push({
         actor: actor,
@@ -71,7 +146,10 @@ export class ActorNetworkComponent implements OnInit {
         movieIds: actor.movies,
         movieCount: actor.movies.length,
         skeletonNode: false,
-        parentActorId: parentActorId
+        parentActorId: parentActorId,
+        revenueTotal: revenueTotal,
+        revenueAverage: revenueTotal / actor.movieData.length,
+        voteAverage: voteTotal / actor.movieData.length,
       });
     }
   }
@@ -133,7 +211,7 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   private sizeSvg(): void {
-    this.svg = d3.select("svg");
+    this.svg = d3.select(".graph-svg");
     this.g = this.svg.append("g");
     this.svg.attr("width", this.width)
       .attr("height", this.height)
@@ -191,45 +269,42 @@ export class ActorNetworkComponent implements OnInit {
     node.fx = node.x;
     node.fy = node.y;
     this._actorService.triggerActorSelectedHandlers(actor);
-    this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
-      for (let i = 0; i < movies.length; i++) {
-        if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
-          this.movies.push(movies[i])
-        }
-      }
-      let actorsWithColabs = this.selectActorIdsToAdd(movies);
-      if (actorsWithColabs.length < 0) {
-        this.createForceNetwork();
-      }
-      let ids: string[] = actorsWithColabs.map(a => a.actorId);
-      this._actorRepository.getActors(ids).subscribe(newActors => {
-        newActors.forEach(newActor => {
-          actorsWithColabs.find(aaa => aaa.actorId == newActor._id).actor = newActor;
-        });
-        actorsWithColabs.sort((l: any, r: any) => {
-          if (l.count > r.count)
-            return -1;
-          if (l.count < r.count)
-            return 1;
-          if (l.actor.movies.length > r.actor.movies.length)
-            return -1;
-          if (l.actor.movies.length < r.actor.movies.length)
-            return 1;
 
-          return 0;
-        });
+    for (let i = 0; i < actor.movieData.length; i++) {
+      if (this.movies.find(temp => temp._id == actor.movieData[i]._id) == null) {
+        this.movies.push(actor.movieData[i])
+      }
+    }
 
-        let limit = actorsWithColabs.splice(0, this.expandConstant);
-        if (this.simulation)
-          this.simulation.stop()
-        limit.forEach(a => {
-          this.addActor(a.actor, node.x, node.y, actorId);
-        })
-        this.createForceNetwork();
+    let actorsWithColabs = this.findMissingActorsWithColabCount(this.movies);
+    if (actorsWithColabs.length <= 0) {
+      this.createForceNetwork();
+      return;
+    }
+
+    let observables = actorsWithColabs.map(a => this._actorRepository.getActorDataById(a.actorId));
+    forkJoin(observables).subscribe(newActors => {
+      newActors.forEach(newActor => {
+        actorsWithColabs.find(aaa => aaa.actorId == newActor._id).actor = newActor;
       });
-    }, (err) => {
-      console.error(err);
-    });
+      actorsWithColabs.sort((l: any, r: any) => {
+        if (l.count > r.count)
+          return -1;
+        if (l.count < r.count)
+          return 1;
+        if (l.actor.movies.length > r.actor.movies.length)
+          return -1;
+        if (l.actor.movies.length < r.actor.movies.length)
+          return 1;
+
+        return 0;
+      });
+      let limit = actorsWithColabs.splice(0, this.expandConstant);
+      limit.forEach(a => {
+        this.addActor(a.actor, node.x, node.y, actorId);
+      })
+      this.createForceNetwork();
+    })
   }
 
   selectNode(actorId: string) {
@@ -245,15 +320,14 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   nodeOver(evt) {
-    evt.target.style['fill'] = this.nodeHoverColor;
-    evt.target.style['stroke'] = this.nodeHoverColor;
-    evt.target.style['stroke-width'] = '3px';
+    let node: ActorNode = evt.target.__data__;
+    evt.target.style['stroke'] = this.getColor(node);
+    evt.target.style['stroke-width'] = '10px';
   }
 
   nodeOut(evt) {
     let actorId = evt.target.__data__.actor._id;
     let node = this.nodes.find(a => a.actor._id == actorId)
-    evt.target.style['fill'] = this.nodeColor;
     evt.target.style['stroke'] = 'black';
     evt.target.style['stroke-width'] = node.isSelected ? '3px' : '1px';
   }
@@ -287,13 +361,13 @@ export class ActorNetworkComponent implements OnInit {
       this.createForceNetwork();
     }
     else {
-      this.addActor(actor, this.width / 2, this.height / 2, null);
-      this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
-        for (let i = 0; i < movies.length; i++) {
-          if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
-            this.movies.push(movies[i])
+      this._actorRepository.getActorDataById(actor._id).subscribe(actorData => {
+        this.addActor(actorData, this.width / 2, this.height / 2, null);
+        actorData.movieData.forEach(movie => {
+          if (this.movies.find(temp => temp._id == movie._id) == null) {
+            this.movies.push(movie)
           }
-        }
+        });
         this.selectNode(actor._id);
         this.createForceNetwork();
       }, (err) => {
@@ -306,7 +380,7 @@ export class ActorNetworkComponent implements OnInit {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
   }
 
-  selectActorIdsToAdd(movies: Movie[]): { actorId: string, count: number, actor: Actor }[] {
+  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number, actor: ActorData }[] {
     let dict = {};
     for (let i = 0; i < movies.length; i++) {
       for (let j = 0; j < movies[i].actors.length; j++) {
@@ -374,7 +448,7 @@ export class ActorNetworkComponent implements OnInit {
     skeletonEnter
       .append("line")
       .style("stroke-width", (e) => { return `${e.width}px` })
-      .style("opacity", (e)=> this.skeletonShown ? 1 : 0)
+      .style("opacity", (e) => this.skeletonShown ? 1 : 0)
       .style("stroke", "#FF5533")
       .style("pointer-events", "none");
   }
@@ -392,7 +466,7 @@ export class ActorNetworkComponent implements OnInit {
 
     nodeEnter.append("circle")
       .attr("r", (n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)))
-      .style("fill", this.nodeColor)
+      .style("fill", (n: ActorNode) => this.getColor(n))
       .style("stroke", "black")
       .style("stroke-width", "1px")
 
@@ -414,8 +488,27 @@ export class ActorNetworkComponent implements OnInit {
       .style("pointer-events", "none")
 
 
-    d3.select("svg").selectAll("g.node > circle")
+    this.svg.selectAll("g.node > circle")
       .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
+  }
+
+  getColor(node: ActorNode) {
+    switch (this.colorType) {
+      case ColorDataEnum.revenueTotal:
+        return this.color(node.revenueTotal)
+      case ColorDataEnum.revenueAverage:
+        return this.color(node.revenueAverage)
+      case ColorDataEnum.voteAverage:
+        return this.color(node.voteAverage)
+      case ColorDataEnum.none:
+        return 'lime';
+    }
+  }
+
+  changeColors(e) {
+    this.createColor();
+    this.svg.selectAll("circle")
+      .style("fill", (n: ActorNode) => this.getColor(n));
   }
 
   dragged(evt, node) {
@@ -431,13 +524,13 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   updateNetwork() {
-    d3.select("svg").selectAll("line")
+    this.svg.selectAll("line")
       .attr("x1", function (d: any) { return d.source.x })
       .attr("y1", function (d: any) { return d.source.y })
       .attr("x2", function (d: any) { return d.target.x })
       .attr("y2", function (d: any) { return d.target.y });
 
-    d3.select("svg").selectAll("g.node")
+    this.svg.selectAll("g.node")
       .attr("transform", (n: ActorNode) => {
         return "translate(" + n.x + "," + n.y + ")"
       });
@@ -446,17 +539,17 @@ export class ActorNetworkComponent implements OnInit {
   reset() {
     if (this.simulation)
       this.simulation.stop();
-    d3.select("svg").selectAll("g.edge").data([]).enter()
-    d3.select("svg").selectAll("g.node").data([]).enter()
+    this.svg.selectAll("g.edge").data([]).enter()
+    this.svg.selectAll("g.node").data([]).enter()
     d3.selectAll("g.node").data([]).exit()
       .transition().duration(500).style("opacity", 0)
       .remove();
     d3.selectAll("g.edge").data([]).exit()
       .transition().duration(500).style("opacity", 0)
       .remove();
-      d3.selectAll("g.skeleton").data([]).exit()
-        .transition().duration(500).style("opacity", 0)
-        .remove();
+    d3.selectAll("g.skeleton").data([]).exit()
+      .transition().duration(500).style("opacity", 0)
+      .remove();
     this.actors = [];
     this.movies = [];
     this.nodes = [];
@@ -479,6 +572,9 @@ interface ActorNode extends d3.SimulationNodeDatum {
   movieCount: number;
   skeletonNode: boolean;
   parentActorId?: string;
+  revenueTotal: number;
+  revenueAverage: number;
+  voteAverage: number;
 }
 
 interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {
@@ -486,4 +582,17 @@ interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {
   movieIds: string[];
   movieTitles: string[];
   isSkeleton: boolean;
+}
+
+enum ColorDataEnum {
+  revenueTotal = 'revenueTotal',
+  revenueAverage = 'revenueAverage',
+  voteAverage = 'voteAverage',
+  none = 'none'
+}
+enum colorSchemaEnum {
+  viridis = 'viridis',
+  magma = 'magma',
+  plasma = 'plasma',
+  heatmap = 'heatmap'
 }

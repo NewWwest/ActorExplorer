@@ -15,6 +15,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.component';
 import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 import { MatButtonModule } from '@angular/material/button';
+import { MatRadioModule } from '@angular/material/radio';
 
 @NgModule({
   declarations: [
@@ -36,6 +37,7 @@ import { MatButtonModule } from '@angular/material/button';
     MatToolbarModule,
     MatFormFieldModule,
     MatButtonModule,
+    MatRadioModule,
   ],
   providers: [],
   bootstrap: [AppComponent]
