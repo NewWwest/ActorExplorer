@@ -108,7 +108,6 @@ export class ActorNetworkComponent implements OnInit {
         break;
     }
 
-    console.log(d3.range(min, max, max / 100))
     this.color = d3.scaleSequential().domain([min, max]).interpolator(interpolator);
     this.colorLegend = d3.select(".color-legend-svg")
       .attr("width", 700)
@@ -276,32 +275,24 @@ export class ActorNetworkComponent implements OnInit {
       }
     }
 
-    let actorsWithColabs = this.findMissingActorsWithColabCount(this.movies);
+    let actorsWithColabs = this.findMissingActorsWithColabCount(actor.movieData);
     if (actorsWithColabs.length <= 0) {
       this.createForceNetwork();
       return;
     }
+    actorsWithColabs.sort((l: any, r: any) => {
+      if (l.count > r.count)
+        return -1;
+      if (l.count < r.count)
+        return 1;
 
-    let observables = actorsWithColabs.map(a => this._actorRepository.getActorDataById(a.actorId));
+      return 0;
+    });
+    let actorsWithColabsFiltered = actorsWithColabs.splice(0, this.expandConstant);
+    let observables = actorsWithColabsFiltered.map(a => this._actorRepository.getActorDataById(a.actorId));
     forkJoin(observables).subscribe(newActors => {
-      newActors.forEach(newActor => {
-        actorsWithColabs.find(aaa => aaa.actorId == newActor._id).actor = newActor;
-      });
-      actorsWithColabs.sort((l: any, r: any) => {
-        if (l.count > r.count)
-          return -1;
-        if (l.count < r.count)
-          return 1;
-        if (l.actor.movies.length > r.actor.movies.length)
-          return -1;
-        if (l.actor.movies.length < r.actor.movies.length)
-          return 1;
-
-        return 0;
-      });
-      let limit = actorsWithColabs.splice(0, this.expandConstant);
-      limit.forEach(a => {
-        this.addActor(a.actor, node.x, node.y, actorId);
+      newActors.forEach(a => {
+        this.addActor(a, node.x, node.y, actorId);
       })
       this.createForceNetwork();
     })
@@ -380,7 +371,7 @@ export class ActorNetworkComponent implements OnInit {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
   }
 
-  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number, actor: ActorData }[] {
+  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number }[] {
     let dict = {};
     for (let i = 0; i < movies.length; i++) {
       for (let j = 0; j < movies[i].actors.length; j++) {
@@ -393,7 +384,7 @@ export class ActorNetworkComponent implements OnInit {
         }
       }
     }
-    let actorsWithColabs = Object.keys(dict).map(k => { return { actorId: k, count: dict[k], actor: null } });
+    let actorsWithColabs = Object.keys(dict).map(k => { return { actorId: k, count: dict[k] } });
     let actorsWithColabsFiltered = [];
     for (let i = 0; i < actorsWithColabs.length; i++) {
       if (this.actors.find(a => actorsWithColabs[i].actorId == a._id) == null) {
