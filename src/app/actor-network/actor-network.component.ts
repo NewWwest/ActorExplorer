@@ -25,7 +25,7 @@ export class ActorNetworkComponent implements OnInit {
   averageRevenueMaxScale = 200_000_000;
   averageRevenueMinScale = 0;
   votingMaxScale = 10;
-  votingMinScale = 0;
+  votingMinScale = 5;
 
   startingActor = "Zac Efron"
   actors: ActorData[] = [];
@@ -113,15 +113,64 @@ export class ActorNetworkComponent implements OnInit {
       .attr("width", 700)
       .attr("height", 20);
     this.colorLegend.selectAll('rect').data([]).exit().remove()
-    this.colorLegend.selectAll('rect')
+    this.colorLegend.selectAll('text').data([]).exit().remove()
+    let legendEnter = this.colorLegend.selectAll('rect')
       .data(d3.range(min, max, max / 100))
-      .enter()
-      .append('rect')
+      .enter();
+    legendEnter.append('rect')
       .attr('x', (d, i) => { return i * 7; })
       .attr('y', 0)
       .attr('width', 7)
       .attr('height', 20)
-      .attr('fill', (d, i) => { return ColorDataEnum.none == this.colorType ? 'lime' : this.color(d); });
+      .attr('fill', (d, i) => { return ColorDataEnum.none == this.colorType ? 'lime' : this.color(d); })
+
+    switch (this.colorType) {
+      case ColorDataEnum.revenueTotal:
+      case ColorDataEnum.revenueAverage:
+        legendEnter.append("text")
+          .style("text-anchor", "middle")
+          .attr('x', (d, i) => {
+            if (i == 0)
+              return 12;
+            if (i == 50)
+              return i * 7;
+            if (i = 99)
+              return i * 7 - 21;
+            return 0;
+          })
+          .attr('y', 15)
+          .style("stroke-width", "0.7px")
+          .style("stroke-opacity", 1)
+          .style("stroke", "white")
+          .style("font-size", "25")
+          .text((d, i) => i == 0 || i == 50 || i == 99 ? `${d / 1000_000}M` : '')
+          .style("pointer-events", "none")
+        break;
+      case ColorDataEnum.voteAverage:
+        legendEnter.append("text")
+          .style("text-anchor", "middle")
+          .attr('x', (d, i) => {
+            console.log(i)
+            if (i == 0)
+              return 12;
+            if (i % 10 == 0)
+              return i * 7;
+            if (i == 49)
+              return i * 7 - 14;
+            return 0;
+          })
+          .attr('y', 15)
+          .style("stroke-width", "0.7px")
+          .style("stroke-opacity", 1)
+          .style("stroke", "white")
+          .style("font-size", "25")
+          .text((d, i) => i % 10 == 0 ? d : i == 49 ? 10 : '')
+          .style("pointer-events", "none")
+        break;
+      case ColorDataEnum.none:
+        //no legend
+        break;
+    }
   }
 
   addActor(actor: ActorData, x: number, y: number, parentActorId: string) {
@@ -280,30 +329,29 @@ export class ActorNetworkComponent implements OnInit {
       this.createForceNetwork();
       return;
     }
-
-    let observables = actorsWithColabs.map(a => this._actorRepository.getActorDataById(a.actorId));
-    forkJoin(observables).subscribe(newActors => {
-      newActors.forEach(newActor => {
-        actorsWithColabs.find(aaa => aaa.actorId == newActor._id).actor = newActor;
+    let ids = actorsWithColabs.map(a => a.actorId);
+    this._actorRepository.getActorMovieCounts(ids).subscribe(movieCounts => {
+      movieCounts.forEach(movieCount => {
+        actorsWithColabs.find(aaa => aaa.actorId == movieCount._id).movieCount = movieCount.count;
       });
-      actorsWithColabs.sort((l: any, r: any) => {
+      actorsWithColabs.sort((l, r) => {
         if (l.count > r.count)
           return -1;
         if (l.count < r.count)
           return 1;
-        if (l.actor.movies.length > r.actor.movies.length)
+        if (l.movieCount > r.movieCount)
           return -1;
-        if (l.actor.movies.length < r.actor.movies.length)
+        if (l.movieCount < r.movieCount)
           return 1;
 
         return 0;
       });
-      let limit = actorsWithColabs.splice(0, this.expandConstant);
-      limit.forEach(a => {
-        this.addActor(a.actor, node.x, node.y, actorId);
-      })
-      this.createForceNetwork();
-    })
+      let actorsWithColabsFiltered = actorsWithColabs.splice(0, this.expandConstant);
+      actorsWithColabsFiltered.map(x => this._actorRepository.getActorDataById(x.actorId).subscribe((newActor => {
+        this.addActor(newActor, node.x, node.y, actorId);
+        this.createForceNetwork();
+      })))
+    });
   }
 
   selectNode(actorId: string) {
@@ -379,7 +427,7 @@ export class ActorNetworkComponent implements OnInit {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
   }
 
-  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number, actor: ActorData }[] {
+  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number, movieCount: number }[] {
     let dict = {};
     for (let i = 0; i < movies.length; i++) {
       for (let j = 0; j < movies[i].actors.length; j++) {

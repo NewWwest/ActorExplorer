@@ -18,8 +18,8 @@ export class ActorRepository {
         return this._http.get<Actor>(`http://localhost:4201/api/actor/name/${name}`);
     }
 
-    getActors(ids: string[]): Observable<Actor[]> {
-        return this._http.post<Actor[]>(`http://localhost:4201/api/actor/list/`, ids);
+    getActorMovieCounts(ids: string[]): Observable<{_id: string, count: number}[]> {
+        return this._http.post<{_id: string, count: number}[]>(`http://localhost:4201/api/actor/moviecount/`, ids);
     }
     
     getActorById(id: string): Observable<Actor> {

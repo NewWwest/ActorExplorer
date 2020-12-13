@@ -126,7 +126,7 @@ app.get('/api/actor/id/:actorId/data', (req, res) => {
         })
     })
 }); //
-app.post('/api/actor/list/', (req, res) => {
+app.post('/api/actor/moviecount/', (req, res) => {
     console.log(`Request(POST) for multiple actors by id`)
     var observables = [];
     req.body.forEach(x => {
@@ -134,7 +134,14 @@ app.post('/api/actor/list/', (req, res) => {
         observables.push(actorModel.findById(id, (err, d) => d));
     })
     rxjs.forkJoin(observables).subscribe(actors => {
-        res.send(actors);
+        var result = [];
+        actors.forEach(x => {
+            result.push({
+                _id: x._id,
+                count: x.movies.length
+            });
+        })
+        res.send(result);
         return;
     })
 });
