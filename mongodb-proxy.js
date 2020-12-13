@@ -105,6 +105,27 @@ app.get('/api/actor/id/:actorId/movies', (req, res) => {
         })
     })
 }); //
+app.get('/api/actor/id/:actorId/data', (req, res) => {
+    console.log(`Request for actor data by id:${req.params.actorId}`)
+    var id = mongoose.Types.ObjectId(req.params.actorId);
+    actorModel.findById(id, (err, data) => {
+        if (err) {
+            res.send(err);
+            return;
+        }
+        var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
+        rxjs.forkJoin(observables).subscribe(movieModels => {
+            var result = {
+                _id: data._id,
+                name: data.name,
+                movies: data.movies,
+                birth: data.birth,
+                movieData: movieModels
+            }
+            res.send(result);
+        })
+    })
+}); //
 app.post('/api/actor/list/', (req, res) => {
     console.log(`Request(POST) for multiple actors by id`)
     var observables = [];
