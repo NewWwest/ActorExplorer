@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
 import { ActorService } from '../actor.service';
-import { Actor, ActorData } from '../models/actor';
+import { Actor } from '../models/actor';
 import { Movie } from '../models/movie';
 
 @Component({
@@ -28,7 +28,7 @@ export class ActorNetworkComponent implements OnInit {
   votingMinScale = 5;
 
   startingActor = "Zac Efron"
-  actors: ActorData[] = [];
+  actors: Actor[] = [];
   movies: Movie[] = [];
   nodes: ActorNode[] = [];
   edges: MovieLink[] = [];
@@ -57,17 +57,15 @@ export class ActorNetworkComponent implements OnInit {
     this.sizeSvg();
     this.createColor();
     this._actorRepository.getActorByName(this.startingActor).subscribe(actor => {
-      this._actorRepository.getActorDataById(actor._id).subscribe(actorData => {
-        this.addActor(actorData, this.width / 2, this.height / 2, null);
-        this.createForceNetwork();
-      }, (err) => {
-        console.error(err);
-      });
+      this.addActor(actor, this.width / 2, this.height / 2, null);
+      this.createForceNetwork();
     }, (err) => {
       console.error(err);
     });
     this._actorService.addSearchForActorHandler(this.addOrSelectNewActor.bind(this));
     this._actorService.addResetHandlers(this.reset.bind(this));
+    this._actorService.addShowOrHideSkeletonHandlers(this.showOrHideSkeleton.bind(this));
+    this._actorService.addActorSelectionChangedHandler(this.expandNode.bind(this));
     this._actorService.addShowOrHideSkeletonHandlers(this.showOrHideSkeleton.bind(this));
   }
 
@@ -150,7 +148,6 @@ export class ActorNetworkComponent implements OnInit {
         legendEnter.append("text")
           .style("text-anchor", "middle")
           .attr('x', (d, i) => {
-            console.log(i)
             if (i == 0)
               return 12;
             if (i % 10 == 0)
@@ -173,18 +170,11 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
-  addActor(actor: ActorData, x: number, y: number, parentActorId: string) {
+  addActor(actor: Actor, x: number, y: number, parentActorId: string) {
     if (this.simulation)
       this.simulation.stop();
 
     if (this.actors.find(a => actor._id == a._id) == null) {
-      let revenueTotal = 0;
-      let voteTotal = 0;
-      actor.movieData.forEach(movie => {
-        revenueTotal += movie.revenue;
-        voteTotal += movie.vote_average;
-      })
-
       this.actors.push(actor);
       this.nodes.push({
         actor: actor,
@@ -195,9 +185,9 @@ export class ActorNetworkComponent implements OnInit {
         movieCount: actor.movies.length,
         skeletonNode: false,
         parentActorId: parentActorId,
-        revenueTotal: revenueTotal,
-        revenueAverage: revenueTotal / actor.movieData.length,
-        voteAverage: voteTotal / actor.movieData.length,
+        revenueTotal: actor.total_revenue,
+        revenueAverage: actor.total_revenue / actor.movies.length,
+        voteAverage: actor.total_rating / actor.movies.length,
       });
     }
   }
@@ -305,36 +295,41 @@ export class ActorNetworkComponent implements OnInit {
     this.simulation.alpha(0.2).restart();
   }
 
-  expandNode(e) {
+  clickNode(e) {
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
-    let node = this.nodes.find(a => a.actor._id == actorId);
-    if (this.skeletonNodes.find(n => n.actor._id == actorId) == null) {
-      this.skeletonNodes.push(node);
-    }
     this.selectNode(actorId);
-    this.nodes.forEach(n => { n.fx = null; n.fy = null })
-    node.fx = node.x;
-    node.fy = node.y;
     this._actorService.triggerActorSelectedHandlers(actor);
+  }
 
-    for (let i = 0; i < actor.movieData.length; i++) {
-      if (this.movies.find(temp => temp._id == actor.movieData[i]._id) == null) {
-        this.movies.push(actor.movieData[i])
+  expandNode(actor:Actor, movies, color){
+    let node = this.nodes.find(a => a.actor._id == actor._id);
+    for (let i = 0; i < movies.length; i++) {
+      if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
+        this.movies.push(movies[i])
       }
     }
 
-    let actorsWithColabs = this.findMissingActorsWithColabCount(actor.movieData);
-    if (actorsWithColabs.length <= 0) {
+    let actorsWithColabs = this.findMissingActorsWithColabCount(movies);
+    if (actorsWithColabs == null) {
+      console.log(`No more actors to be added for ${actor.name}`)
       this.createForceNetwork();
       return;
     }
-    let ids = actorsWithColabs.map(a => a.actorId);
+    let ids = Object.keys(actorsWithColabs);
     this._actorRepository.getActorMovieCounts(ids).subscribe(movieCounts => {
       movieCounts.forEach(movieCount => {
-        actorsWithColabs.find(aaa => aaa.actorId == movieCount._id).movieCount = movieCount.count;
+        actorsWithColabs[movieCount._id].movieCount = movieCount.count;
       });
-      actorsWithColabs.sort((l, r) => {
+      let actorsWithColabsArray = Object.keys(actorsWithColabs).map(k => { 
+        return { 
+          actorId: k, 
+          count: actorsWithColabs[k].count, 
+          movieCount: actorsWithColabs[k].movieCount 
+        } 
+      });
+
+      actorsWithColabsArray.sort((l, r) => {
         if (l.count > r.count)
           return -1;
         if (l.count < r.count)
@@ -346,22 +341,30 @@ export class ActorNetworkComponent implements OnInit {
 
         return 0;
       });
-      let actorsWithColabsFiltered = actorsWithColabs.splice(0, this.expandConstant);
-      actorsWithColabsFiltered.map(x => this._actorRepository.getActorDataById(x.actorId).subscribe((newActor => {
-        this.addActor(newActor, node.x, node.y, actorId);
+      let actorsWithColabsFiltered = actorsWithColabsArray.splice(0, this.expandConstant);
+      actorsWithColabsFiltered.map(x => this._actorRepository.getActorById(x.actorId).subscribe((newActor => {
+        this.addActor(newActor, node.x, node.y, actor._id);
         this.createForceNetwork();
       })))
     });
   }
 
+  //Call always AFTER adding the node
   selectNode(actorId: string) {
     this.nodes.forEach(n => {
       if (n.actor._id == actorId) {
         n.isSelected = true;
         n.skeletonNode = true;
+        n.fx = n.x;
+        n.fy = n.y;
+        if (this.skeletonNodes.find(temp => temp.actor._id == actorId) == null) {
+          this.skeletonNodes.push(n);
+        }
       }
       else {
         n.isSelected = false;
+        n.fx = null; 
+        n.fy = null;
       }
     })
   }
@@ -403,51 +406,39 @@ export class ActorNetworkComponent implements OnInit {
 
   addOrSelectNewActor(actor: Actor) {
     let node = this.nodes.find(a => a.actor._id == actor._id);
-    if (node != null) {
-      this.selectNode(actor._id);
-      this.createForceNetwork();
+    if (node == null) {
+      this.addActor(actor, this.width / 2, this.height / 2, null);
     }
-    else {
-      this._actorRepository.getActorDataById(actor._id).subscribe(actorData => {
-        this.addActor(actorData, this.width / 2, this.height / 2, null);
-        actorData.movieData.forEach(movie => {
-          if (this.movies.find(temp => temp._id == movie._id) == null) {
-            this.movies.push(movie)
-          }
-        });
-        this.selectNode(actor._id);
-        this.createForceNetwork();
-      }, (err) => {
-        console.error(err);
-      });
-    }
+    this.selectNode(actor._id);
+    this.createForceNetwork();
   }
 
   isSameEdge(sourceId1, targetId1, sourceId2, targetId2) {
     return (sourceId1 == sourceId2 && targetId1 == targetId2) || (sourceId1 == targetId2 && sourceId2 == targetId1)
   }
 
-  findMissingActorsWithColabCount(movies: Movie[]): { actorId: string, count: number, movieCount: number }[] {
+  findMissingActorsWithColabCount(movies: Movie[]) {
     let dict = {};
     for (let i = 0; i < movies.length; i++) {
       for (let j = 0; j < movies[i].actors.length; j++) {
         let id = movies[i].actors[j]
         if (dict[id] != null) {
-          dict[id] += 1;
+          dict[id].count +=1
         }
         else {
-          dict[id] = 1;
+          dict[id] = {count: 1};
         }
       }
     }
-    let actorsWithColabs = Object.keys(dict).map(k => { return { actorId: k, count: dict[k], actor: null } });
-    let actorsWithColabsFiltered = [];
-    for (let i = 0; i < actorsWithColabs.length; i++) {
-      if (this.actors.find(a => actorsWithColabs[i].actorId == a._id) == null) {
-        actorsWithColabsFiltered.push(actorsWithColabs[i]);
+    let actorsWithColabsFiltered = {};
+    let isEmpty =true;
+    for(var key in dict) {
+      if (this.actors.find(a => key == a._id) == null) {
+        actorsWithColabsFiltered[key]=dict[key];
+        isEmpty=false;
       }
     }
-    return actorsWithColabsFiltered;
+    return isEmpty ? null : actorsWithColabsFiltered;
   }
 
   isSideEdge(e: any) {
@@ -506,7 +497,7 @@ export class ActorNetworkComponent implements OnInit {
       .enter()
       .append("g")
       .attr("class", "node")
-      .on("click", this.expandNode.bind(this))
+      .on("click", this.clickNode.bind(this))
       .on("mouseover", this.nodeOver.bind(this))
       .on("mouseout", this.nodeOut.bind(this))
       .call(d3.drag().on("drag", this.dragged.bind(this)));
