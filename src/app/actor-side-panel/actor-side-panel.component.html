@@ -1,13 +1,6 @@
-<div>
-    <div *ngIf="!actor">
-        Select an actor
-    </div>
-    <div *ngIf="actor">
-        {{actor.name}}
-    </div>
-    <div>
-        <app-time-slider></app-time-slider>
-        <app-rating-over-time></app-rating-over-time>
-        <app-radar-chart></app-radar-chart>
-    </div>
+<div style="position: absolute;left:0px;top:0px;float:left;height:100%;overflow-y:scroll;border-left: 3px groove rgba(200, 200, 200, .2);">
+    <app-legend></app-legend>
+    <app-time-slider></app-time-slider>
+    <app-rating-over-time></app-rating-over-time>
+    <app-radar-chart></app-radar-chart>
 </div>
