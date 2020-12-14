@@ -23,7 +23,6 @@ export class TimeSliderComponent implements OnInit {
   private margin = { top: 40, right: 10, bottom: 40, left: 10 };
   private leftBound: number = this.margin.left;
   private rightBound: number = this.leftBound + 100;
-  private timer: d3.Timer;
   
 
   constructor(private _actorRepository: ActorRepository, private _actorService: ActorService, private _actorSelection: ActorSelection) { }
@@ -139,7 +138,7 @@ export class TimeSliderComponent implements OnInit {
       this.updateBody();
       this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
 
-      this.timer = d3.interval(endHandler, 100);
+      d3.interval(endHandler, 100);
     });
 
   }
@@ -202,96 +201,5 @@ export class TimeSliderComponent implements OnInit {
     this.rightBound = value;
     this.rightHandle.attr('x', this.rightBound);
   }
-
-
-// function draw_histogram_from_buckets(buckets, x, opts = {}) {
-//   const width = opts.width || 300,
-//     height = opts.height || 200,
-//     margin = opts.margin || { top: 20, right: 20, bottom: 30, left: 40 },
-//     svg = d3.select(DOM.svg(width, height)),
-//     maxBins = d3.max(buckets, d => d.length),
-//     data = buckets.flat(),
-//     count = data.length,
-//     y = d3
-//       .scaleLinear()
-//       .domain([0, maxBins])
-//       .nice()
-//       .range([height - margin.bottom, margin.top]),
-//     frequency = opts.relative
-//       ? d3
-//         .scaleLinear()
-//         .domain([0, maxBins / count])
-//         .nice()
-//         .range([height - margin.bottom, margin.top])
-//       : y,
-//     xAxis = g =>
-//       g
-//         .attr("transform", `translate(0,${height - margin.bottom})`)
-//         .call(d3.axisBottom(x).tickSizeOuter(0))
-//         .call(g =>
-//           g
-//             .append("text")
-//             .attr("x", width - margin.right)
-//             .attr("y", -4)
-//             .attr("fill", "#000")
-//             .attr("font-weight", "bold")
-//             .attr("text-anchor", "end")
-//             .text(opts.xText)
-//         );
-
-//   const binColor = d3
-//     .scaleThreshold()
-//     .domain(buckets.map(d => d.x0))
-//     .range(colors);
-
-//   svg
-//     .append("g")
-//     .selectAll("rect")
-//     .data(buckets)
-//     .join("rect")
-//     .attr("fill", opts.fill || (d => binColor(d.x0)))
-//     .attr("x", d => x(d.x0) + 1)
-//     .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
-//     .attr("y", d => y(d.length))
-//     .attr("height", d => y(0) - y(d.length));
-
-//   svg.append("g").call(xAxis);
-
-//   if (opts.title)
-//     svg
-//       .append("g")
-//       .append("text")
-//       .text(opts.title)
-//       .style("fill", "#000")
-//       .attr("font-weight", "bold")
-//       .style("font-size", 14)
-//       .style("text-anchor", "end")
-//       .attr("x", width - 30)
-//       .attr("y", 10);
-
-//   const labels = svg
-//     .append("g")
-//     .selectAll("text")
-//     .data(buckets.filter(d => d.length > 0))
-//     .join("text")
-//     .attr("x", d => ((x(d.x0) + x(d.x1)) / 2) | 0)
-//     .attr("y", d => y(d.length) - 2)
-//     .style("fill", "black")
-//     .style("font-size", 10)
-//     .style("text-anchor", "middle");
-//   if (opts.relative) {
-//     const format = d3.format(".1%");
-//     labels.text(d => format(d.length / count));
-//   } else
-//     labels.text(d =>
-//       x(d.x1) - x(d.x0) < 50
-//         ? d.length
-//         : d.length > 1
-//           ? `${d.length} items`
-//           : d.length === 1
-//             ? "1 item"
-//             : "empty bucket"
-//     );
-// }
 
 }
