@@ -20,7 +20,7 @@ export class RatingOverTimeComponent implements OnInit {
   private actorGraphs: Map<Actor, ActorGraph> = new Map<Actor, ActorGraph>();
   private width = 800;
   private height = 400;
-  private margin = { top: 10, right: 200, bottom: 10, left: 80 };
+  private margin = { top: 5, right: 120, bottom: 5, left: 60 };
   private graph_width = this.width - this.margin.left - this.margin.right;
   private upper_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
   private bottom_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
@@ -28,7 +28,6 @@ export class RatingOverTimeComponent implements OnInit {
   private xScaleElement: d3.Selection<any, any, any, any>;
   private yScaleRating: ScaleLinear<number, number, never>;
   private yScaleRatingElement: d3.Selection<any, any, any, any>;
-  private legendElement: d3.Selection<any, any, any, any>;
   private yScaleRevenue: ScaleLinear<number, number, never>;
   private yScaleRevenueElement: d3.Selection<any, any, any, any>;
   private innerElement: d3.Selection<any, any, any, any>;
@@ -207,25 +206,7 @@ export class RatingOverTimeComponent implements OnInit {
       .attr('stroke', stemTopColor.formatRgb());
 
 
-      //  Update legend
-    const legendGroup = this.legendElement.append('g')
-      .attr('transform', `translate(${20 + this.graph_width}, ${30 * this.legendElement.selectChildren('g').size()})`)
 
-
-    legendGroup.append('rect')
-    .attr('width', 20)
-    .attr('height', 20)
-    .attr('fill', mainColor.formatRgb())
-    .attr('stroke', stemTopColor.formatRgb())
-    legendGroup.append('text')
-      .attr('x',  30)
-      .attr('y',  10)
-      .attr('width', 100)
-      .attr('height', 20)
-      .attr('text-anchor', 'start')
-      .attr('fill', mainColor.formatRgb())
-      .attr('align', 'center')
-      .text(actor.name)
 
     this.actorGraphs.set(actor, new ActorGraph(
       actorGraphElement,
@@ -235,7 +216,6 @@ export class RatingOverTimeComponent implements OnInit {
       bottomAreaGraphElement,
       l2,
       c2,
-      legendGroup,
       plotPoints,
       c));
   }
@@ -270,7 +250,7 @@ export class RatingOverTimeComponent implements OnInit {
 
     const maxRevenue = d3.max(allMovies.filter(m => m.in_range), m => m.movie.revenue);
 
-    this.xScale.domain([minYear, maxYear]);
+    this.xScale.domain([minYear - 1, maxYear + 1]);
 
     if (maxRevenue) {
       this.yScaleRevenue.domain([0, maxRevenue]);
@@ -283,10 +263,6 @@ export class RatingOverTimeComponent implements OnInit {
       .transition().duration(transitionTimeMultiplier * 1000)
       .call(d3.axisBottom(this.xScale));
 
-  }
-
-  updateLegend(): void {
-    this.legendElement
   }
 
   ngOnInit(): void {
@@ -304,8 +280,7 @@ export class RatingOverTimeComponent implements OnInit {
       .range([0, this.bottom_graph_height]);
 
     const svg = d3.select('p#rating').append('svg')
-      .attr('width', this.width)
-      .attr('height', this.height)
+      .attr('viewBox', `0 0 ${this.width} ${this.height}`)
       .attr('font-family', 'sans-serif')
       .attr('font-size', '10')
       .attr('text-anchor', 'end');
@@ -317,8 +292,6 @@ export class RatingOverTimeComponent implements OnInit {
     const axes = svg.append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)
 
-    this.legendElement = svg.append('g')
-      .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)
 
     this.xScaleElement = axes.append('g')
       .attr('transform', `translate(0,${this.upper_graph_height})`)
@@ -407,7 +380,6 @@ class ActorGraph {
     bottomAreaGraphElement: d3.Selection<any, any, any, any>,
     l2: d3.Selection<any, any, any, MovieAveragePlot>,
     c2: d3.Selection<any, any, any, MovieAveragePlot>,
-    legendElement: d3.Selection<any, any, any, any>,
     dataPoints: MovieAveragePlot[],
     baseColor: d3.RGBColor | d3.HSLColor
   ) {
@@ -420,7 +392,6 @@ class ActorGraph {
     this.baseColor = baseColor;
     this.l2 = l2;
     this.c2 = c2;
-    this.legendElement = legendElement;
   }
   element: d3.Selection<any, any, any, any>;
   areaRating: d3.Area<MovieAveragePlot>;
@@ -431,5 +402,4 @@ class ActorGraph {
   baseColor: d3.RGBColor | d3.HSLColor;
   l2: d3.Selection<any, any, any, MovieAveragePlot>;
   c2: d3.Selection<any, any, any, MovieAveragePlot>;
-  legendElement: d3.Selection<any, any, any, any>;
 }
