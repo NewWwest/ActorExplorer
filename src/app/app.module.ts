@@ -16,6 +16,7 @@ import { TimeSliderComponent } from './actor-side-panel/time-slider/time-slider.
 import { RadarChartComponent } from './actor-side-panel/radar-chart/radar-chart.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatRadioModule } from '@angular/material/radio';
+import { LegendComponent } from './actor-side-panel/legend/legend.component';
 
 @NgModule({
   declarations: [
@@ -26,6 +27,7 @@ import { MatRadioModule } from '@angular/material/radio';
     TopBarComponent,
     TimeSliderComponent,
     RadarChartComponent,
+    LegendComponent,
   ],
   imports: [
     BrowserModule,
