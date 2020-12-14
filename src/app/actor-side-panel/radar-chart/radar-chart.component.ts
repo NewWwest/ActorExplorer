@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
+import { thresholdFreedmanDiaconis } from 'd3';
 import { forkJoin } from 'rxjs';
 import { tap, map, mergeMap } from 'rxjs/operators';
 import { ActorRepository } from 'src/app/actor.repository';
@@ -19,7 +20,7 @@ export class RadarChartComponent implements OnInit {
 
   private width = 400;
   private height = 400;
-  private margin = { top: 40, right: 120, bottom: 40, left: 120 };
+  private margin = { top: 40, right: 120, bottom: 80, left: 120 };
   private skeleton: d3.Selection<any, any, any, any>;
   private radarChart: d3.Selection<any, any, any, any>;
   private axes: Axis<number, number>[] = [];
@@ -42,8 +43,8 @@ export class RadarChartComponent implements OnInit {
 
 
     const svg = d3.select('p#radar').append('svg')
-      .attr('width', fullWidth)
-      .attr('height', fullHeight);
+      .attr('viewBox', `0 0 ${fullWidth} ${fullHeight}`);
+
 
     this.radarChart = svg.append('g');
 
@@ -57,7 +58,6 @@ export class RadarChartComponent implements OnInit {
     .tickFormat(d3.format(',.2'))
     .tickSizeInner(0)
     .tickSizeOuter(0)
-    .tickPadding(14)
     (s);
 
 
@@ -76,7 +76,13 @@ export class RadarChartComponent implements OnInit {
       .selectAll('g.tick')
       .each((_, j, tickNodes) => {
         const tickNode = d3.select(tickNodes[j]);
-        tickNode.attr('transform', `${tickNode.attr('transform')}rotate(-${i * 360 / axisCount})`)
+        if (j==0) {
+          tickNode.remove();
+        } else {
+          tickNode.attr('transform', `translate(-12,0)${tickNode.attr('transform')}rotate(-${i * 360 / axisCount})`)
+            .attr('text-anchor', 'start')
+            .attr('dominant-baseline', 'bottom')
+        }
       })
       d3.select(nodes[i])
         .append("text")
@@ -84,21 +90,13 @@ export class RadarChartComponent implements OnInit {
         .attr('fill', 'black')
         .attr('transform', `translate(0,${1.2 * armLength})rotate(-${i * 360 / axisCount})scale(1.5,1.5)`)
         .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'hanging')
     })
-    
 
-    // const ticks = this.skeleton
-    //   .select('g.axis')
-    //   .selectAll('g.tick')
-   
-    // ticks
-    //     .data(d => d.values)
-    //     .attr('fill', 'blue')
-    //   .attr('transform', (d: number) => `rotate(-${d * 360 / axisCount})${ticks.attr('transform')}`)
-    // .selectAll('g')
-    // .data(d => d)
-    // .attr('transform', (d: number) => `scale(${4}, ${4}) rotate(-${d * 360 / axisCount})`);
 
+    // Since we rotate the "web", the crossing points no longer line up correctly on the arms
+    // This is because the distance to the corners of the polygon is larger than the arms, so we correct
+    // for this via a geometric factor
     const correctionFactor = armLength / (armLength / Math.cos(Math.PI / axisCount));
     const gridLines = this.skeleton.selectAll('line.grid')
       .data(d3.range(1, gridCount + 1))
@@ -112,33 +110,7 @@ export class RadarChartComponent implements OnInit {
       .attr('y2', d => correctionFactor * (armLength * d / gridCount))
       .attr('x1', d => correctionFactor * Math.tan(Math.PI / axisCount) * (armLength * d / gridCount))
       .attr('x2', d => - correctionFactor * Math.tan(Math.PI / axisCount) * (armLength * d / gridCount));
-    // Since we rotate the "web", the crossing points no longer line up correctly on the arms
-    // This is because the distance to the corners of the polygon is larger than the arms, so we correct
-    // for this via a geometric factor
-    // gridLines.append('line')
-
-
-    // const randomVals = d3.range(axisCount).map(_ => Math.random());
-
-    // const arrdata = d3.zip(randomVals, d3.range(axisCount))
-
-
-    // const areaPlot = d3.area<number[]>()
-    //   .x0(0)
-    //   .x1(d => d3.pointRadial(d[1] * 2 * Math.PI / axisCount, 100 * d[0])[0])
-    //   .y1(d => d3.pointRadial(d[1] * 2 * Math.PI / axisCount, 100 * d[0])[1])
-    //   .y0(0)
-    //   .curve(d3.curveLinearClosed);
-    
-    // svg.append('path')
-    //   .datum(arrdata)
-    //   .attr('fill', 'blue')
-    //   .attr('stroke', 'purple')
-    //   .attr('fill-opacity', 0.1)
-    //   .attr('stroke-opacity', 0.5)
-    //   .attr('stroke-width', 3)
-    //   .attr('d', areaPlot)
-    //   .attr('transform', `translate(${fullWidth / 2},${fullHeight / 2}) rotate(0)`);
+      
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
     }
 
@@ -191,16 +163,19 @@ export class RadarChartComponent implements OnInit {
           .curve(d3.curveLinearClosed);
 
         this.radarChart.selectAll('path.data')
-        .data(data)
-        .join('path')
+        .data(data, (d: ActorMetrics) => d.actor._id)
+        .join(
+          enter => enter.append('path').attr('opacity', 0).call( s => s.transition().attr('opacity', 1).duration(500)),
+          update => update,
+          exit => exit.call(s => s.transition().attr('opacity', 0).duration(500).remove())
+        )
         .attr('class', 'data')
         .attr('fill', d => this._actorSelection.getSelectedActorColor(d.actor).formatRgb())
-          .attr('stroke', d => this._actorSelection.getSelectedActorColor(d.actor).formatRgb())
+        .attr('stroke', d => this._actorSelection.getSelectedActorColor(d.actor).formatRgb())
         .attr('fill-opacity', 0.1)
         .attr('stroke-opacity', 0.7)
         .attr('stroke-width', 3)
-        .datum(d => d.metrics)
-        .attr('d', areaPlot)
+        .attr('d', d => areaPlot(d.metrics))
         .attr('transform', `translate(${fullWidth / 2},${fullHeight / 2}) rotate(180)`);
 
       });
@@ -293,7 +268,6 @@ export class RadarChartComponent implements OnInit {
       .reduce((a, b) => a + b) / collaboratorMovies.size;
 
     const values = [mainStarPortion, collabSame, avgMovieCastSize, collabAvgRevenue, collabAvgMovieCount]
-    console.log(values);
     return values;
   }
 
