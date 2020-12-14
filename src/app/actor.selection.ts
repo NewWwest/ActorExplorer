@@ -20,16 +20,18 @@ export class ActorSelection {
     private colorCounter = 0;
 
     private actorSelected(actor: Actor): void {
-        const colorIndex = this.colorCounter % ActorSelection.SCHEME.length;
-        const color = d3.color(ActorSelection.SCHEME[colorIndex]);
-        this.colorCounter += 1;
-        this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
-            this.actorData.set(actor, {movies, color} as ActorData);
-            if (this.actorData.size > ActorSelection.MAX_ACTORS) {
-                this.actorData.delete(this.actorData.keys().next().value);
-            }
-            this._actorService.triggerActorSelectionChangedHandlers();
-        });
+        if (!this.actorData.has(actor)) {
+            const colorIndex = this.colorCounter % ActorSelection.SCHEME.length;
+            const color = d3.color(ActorSelection.SCHEME[colorIndex]);
+            this.colorCounter += 1;
+            this._actorRepository.getMoviesOfAnActor(actor._id).subscribe(movies => {
+                this.actorData.set(actor, {movies, color} as ActorData);
+                if (this.actorData.size > ActorSelection.MAX_ACTORS) {
+                    this.actorData.delete(this.actorData.keys().next().value);
+                }
+                this._actorService.triggerActorSelectionChangedHandlers();
+            });
+        }
     }
 
     public hasActor(actor: Actor): boolean {
