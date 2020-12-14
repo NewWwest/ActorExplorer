@@ -20,7 +20,7 @@ export class RatingOverTimeComponent implements OnInit {
   private actorGraphs: Map<Actor, ActorGraph> = new Map<Actor, ActorGraph>();
   private width = 800;
   private height = 400;
-  private margin = { top: 20, right: 200, bottom: 30, left: 80 };
+  private margin = { top: 10, right: 200, bottom: 10, left: 80 };
   private graph_width = this.width - this.margin.left - this.margin.right;
   private upper_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
   private bottom_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
@@ -36,7 +36,7 @@ export class RatingOverTimeComponent implements OnInit {
 
   private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
 
-  movingAverageLeft(data: number[], amount: number) {
+  movingAverageLeft(data: number[], amount: number): number[] {
     return data.map((_, i, arr) => {
       const start = Math.max(0, i - amount);
       const end = Math.min(i + 1, arr.length);
