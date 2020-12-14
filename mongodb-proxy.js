@@ -32,6 +32,8 @@ var actorSchema = new Schema({
     birth: Number,
     death: Number,
     movies: [Schema.Types.ObjectId],
+    total_revenue: Number,
+    total_rating: Number
 
 });
 var actorModel = mongoose.model('actor', actorSchema, 'actor')
@@ -104,7 +106,7 @@ app.get('/api/actor/id/:actorId/movies', (req, res) => {
             res.send(movieModels);
         })
     })
-}); //
+});
 app.get('/api/actor/id/:actorId/data', (req, res) => {
     console.log(`Request for actor data by id:${req.params.actorId}`)
     var id = mongoose.Types.ObjectId(req.params.actorId);
@@ -145,6 +147,7 @@ app.post('/api/actor/moviecount/', (req, res) => {
         return;
     })
 });
+
 app.get('/api/search/actorname/:name', (req, res) => {
     console.log(`Request for actors matching name:${req.params.name}`)
     actorModel.find({ name: { "$regex": req.params.name, $options: "i" } }, (err, data) => {

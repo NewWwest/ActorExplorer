@@ -5,6 +5,8 @@ export interface Actor {
     name: string;
     movies: string[];
     birth: number;
+    total_revenue: number;
+    total_rating: number;
 }
 
 export interface ActorData {
@@ -12,5 +14,7 @@ export interface ActorData {
     name: string;
     movies: string[];
     birth: number;
-    movieData: Movie[]
+    movieData: Movie[];
+    total_revenue: number;
+    total_rating: number;
 }
