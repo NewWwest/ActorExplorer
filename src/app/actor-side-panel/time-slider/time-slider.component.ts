@@ -13,14 +13,14 @@ import { Actor } from 'src/app/models/actor';
 })
 export class TimeSliderComponent implements OnInit {
   private handleWidth = 6;
-  private width = 800;
+  private width = 700;
   private height = 100;
   private xScale;
   private timeSection;
   private leftHandle;
   private rightHandle;
   private actorRegions: d3.Selection<any, any, any, any>;
-  private margin = { top: 40, right: 10, bottom: 40, left: 10 };
+  private margin = { top: 40, right: 20, bottom: 10, left: 20 };
   private leftBound: number = this.margin.left;
   private rightBound: number = this.leftBound + 100;
   
@@ -29,8 +29,7 @@ export class TimeSliderComponent implements OnInit {
 
   ngOnInit(): void {
     const svg = d3.select('p#slider').append('svg')
-      .attr('width', this.width + this.margin.left + this.margin.right)
-      .attr('height', this.height + this.margin.top + this.margin.bottom);
+      .attr('viewBox', `0 0 ${this.width + this.margin.left + this.margin.right} ${this.height + this.margin.top + this.margin.bottom}`);
 
     const endHandler = () => {
       this._actorService.triggerTimeRangeHandlers(
@@ -70,7 +69,7 @@ export class TimeSliderComponent implements OnInit {
         .join('rect')
         .attr('fill', 'red')
         .attr('opacity', 0.5)
-        .attr('x', d => this.xScale(d.x0) + this.margin.left)
+        .attr('x', d => this.xScale(d.x0))
         .attr('width', d => Math.max(0, this.xScale(d.x1) - this.xScale(d.x0) - 1))
         .attr('y', d => y(d.length))
         .attr('height', d => y(0) - y(d.length));
@@ -157,8 +156,6 @@ export class TimeSliderComponent implements OnInit {
       .attr('height', 0.25 * this.height / ActorSelection.MAX_ACTORS)
       .attr('fill-opacity', .35)
       .attr('fill', a => this._actorSelection.getSelectedActorColor(a).formatRgb())
-      // I think this is a d3 bug: this should automatically trigger in the update according
-      // to various sources (including official docs), but it doesn't, so we have to do it again here!
       .call(element => element
         .transition()
         .attr('y', (_, i) => i * ( 0.27 * this.height) / ActorSelection.MAX_ACTORS)
