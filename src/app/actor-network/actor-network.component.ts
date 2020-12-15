@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
 import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
+import { ActorSelection } from '../actor.selection';
 import { ActorService } from '../actor.service';
 import { Actor } from '../models/actor';
 import { Movie } from '../models/movie';
@@ -49,7 +50,8 @@ export class ActorNetworkComponent implements OnInit {
   simulation: d3.Simulation<ActorNode, MovieLink>;
 
   constructor(private _actorRepository: ActorRepository,
-    private _actorService: ActorService
+    private _actorService: ActorService,
+    private _actorSelection: ActorSelection,
   ) { }
 
   ngOnInit(): void {
@@ -178,7 +180,6 @@ export class ActorNetworkComponent implements OnInit {
       this.actors.push(actor);
       this.nodes.push({
         actor: actor,
-        isSelected: false,
         x: x ? x + Math.random() * 10 - 5 : null,
         y: x ? y + Math.random() * 10 - 5 : null,
         movieIds: actor.movies,
@@ -248,7 +249,7 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
-  private sizeSvg(): void {
+  sizeSvg(): void {
     this.svg = d3.select(".graph-svg");
     this.g = this.svg.append("g");
     this.svg.attr("width", this.width)
@@ -302,7 +303,7 @@ export class ActorNetworkComponent implements OnInit {
     this._actorService.triggerActorSelectedHandlers(actor);
   }
 
-  expandNode(actor:Actor, movies, color){
+  expandNode(actor: Actor, movies, color) {
     let node = this.nodes.find(a => a.actor._id == actor._id);
     for (let i = 0; i < movies.length; i++) {
       if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
@@ -321,12 +322,12 @@ export class ActorNetworkComponent implements OnInit {
       movieCounts.forEach(movieCount => {
         actorsWithColabs[movieCount._id].movieCount = movieCount.count;
       });
-      let actorsWithColabsArray = Object.keys(actorsWithColabs).map(k => { 
-        return { 
-          actorId: k, 
-          count: actorsWithColabs[k].count, 
-          movieCount: actorsWithColabs[k].movieCount 
-        } 
+      let actorsWithColabsArray = Object.keys(actorsWithColabs).map(k => {
+        return {
+          actorId: k,
+          count: actorsWithColabs[k].count,
+          movieCount: actorsWithColabs[k].movieCount
+        }
       });
 
       actorsWithColabsArray.sort((l, r) => {
@@ -353,7 +354,6 @@ export class ActorNetworkComponent implements OnInit {
   selectNode(actorId: string) {
     this.nodes.forEach(n => {
       if (n.actor._id == actorId) {
-        n.isSelected = true;
         n.skeletonNode = true;
         n.fx = n.x;
         n.fy = n.y;
@@ -362,8 +362,7 @@ export class ActorNetworkComponent implements OnInit {
         }
       }
       else {
-        n.isSelected = false;
-        n.fx = null; 
+        n.fx = null;
         n.fy = null;
       }
     })
@@ -378,8 +377,10 @@ export class ActorNetworkComponent implements OnInit {
   nodeOut(evt) {
     let actorId = evt.target.__data__.actor._id;
     let node = this.nodes.find(a => a.actor._id == actorId)
-    evt.target.style['stroke'] = 'black';
-    evt.target.style['stroke-width'] = node.isSelected ? '3px' : '1px';
+    let selectedActors = this._actorSelection.getSelectedActors();
+    let isSlected = this.isNodeSelected(selectedActors, node);
+    evt.target.style['stroke'] = isSlected ? this._actorSelection.getSelectedActorColor(node.actor) : 'black';
+    evt.target.style['stroke-width'] = isSlected ? '3px' : '1px';
   }
 
   edgeMove(d) {
@@ -423,19 +424,19 @@ export class ActorNetworkComponent implements OnInit {
       for (let j = 0; j < movies[i].actors.length; j++) {
         let id = movies[i].actors[j]
         if (dict[id] != null) {
-          dict[id].count +=1
+          dict[id].count += 1
         }
         else {
-          dict[id] = {count: 1};
+          dict[id] = { count: 1 };
         }
       }
     }
     let actorsWithColabsFiltered = {};
-    let isEmpty =true;
-    for(var key in dict) {
+    let isEmpty = true;
+    for (var key in dict) {
       if (this.actors.find(a => key == a._id) == null) {
-        actorsWithColabsFiltered[key]=dict[key];
-        isEmpty=false;
+        actorsWithColabsFiltered[key] = dict[key];
+        isEmpty = false;
       }
     }
     return isEmpty ? null : actorsWithColabsFiltered;
@@ -504,9 +505,7 @@ export class ActorNetworkComponent implements OnInit {
 
     nodeEnter.append("circle")
       .attr("r", (n: ActorNode) => Math.max(this.minNodeRadius, 5 * Math.sqrt(n.movieCount)))
-      .style("fill", (n: ActorNode) => this.getColor(n))
-      .style("stroke", "black")
-      .style("stroke-width", "1px")
+      .style("fill", (n: ActorNode) => this.getColor(n));
 
     nodeEnter.append("text")
       .style("text-anchor", "middle")
@@ -526,8 +525,20 @@ export class ActorNetworkComponent implements OnInit {
       .style("pointer-events", "none")
 
 
+    let selectedActors = this._actorSelection.getSelectedActors();
     this.svg.selectAll("g.node > circle")
-      .style("stroke-width", (n: ActorNode) => n.isSelected ? '3px' : '1px');
+      .style("stroke-width", (n: ActorNode) => {
+        return this.isNodeSelected(selectedActors, n) ? "3px" : "1px";
+      });
+
+    this.svg.selectAll("g.node > circle")
+      .style("stroke", (n: ActorNode) => {
+        return this.isNodeSelected(selectedActors, n) ? this._actorSelection.getSelectedActorColor(n.actor) : "black";
+      });
+  }
+
+  isNodeSelected(selectedActors, node) {
+    return selectedActors.find(a => a._id == node.actor._id) != null
   }
 
   getColor(node: ActorNode) {
@@ -605,7 +616,6 @@ export class ActorNetworkComponent implements OnInit {
 
 interface ActorNode extends d3.SimulationNodeDatum {
   actor: Actor;
-  isSelected: boolean;
   movieIds: string[];
   movieCount: number;
   skeletonNode: boolean;
