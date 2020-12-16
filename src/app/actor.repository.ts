@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, OnInit } from '@angular/core';
 import { Observable } from 'rxjs/internal/Observable';
-import { Actor, ActorData } from './models/actor';
+import { Actor } from './models/actor';
 import { Movie } from './models/movie';
 
 @Injectable({
@@ -42,9 +42,9 @@ export class ActorRepository {
         return this._http.get<Movie[]>(`http://localhost:4201/api/actor/id/${actorId}/movies`);
     }
     
-    getActorDataById(actorId: string): Observable<ActorData> {
-        return this._http.get<ActorData>(`http://localhost:4201/api/actor/id/${actorId}/data`);
-    }
+    // getActorDataById(actorId: string): Observable<ActorData> {
+    //     return this._http.get<ActorData>(`http://localhost:4201/api/actor/id/${actorId}/data`);
+    // }
 
     getMovieListbetweenActors(actorId1: string, actorId2: string, movies: Movie[]): Movie[] {
         return movies.filter(movie =>

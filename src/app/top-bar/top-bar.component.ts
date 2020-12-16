@@ -23,7 +23,6 @@ export class TopBarComponent {
   report(e) {
     if (this.searchBoxText && this.searchBoxText.length > 3) {
       this._actorRepository.searchActorsByName(this.searchBoxText).subscribe((data) => {
-        console.log(data);
         this.actorNames = data.map(a => a.name);
         this.actorNames.sort();
       })

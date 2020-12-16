@@ -31,6 +31,8 @@ var actorSchema = new Schema({
     name: String,
     birth: Number,
     death: Number,
+    total_rating: Number,
+    total_revenue: Number,
     movies: [Schema.Types.ObjectId],
     total_revenue: Number,
     total_rating: Number
@@ -107,27 +109,29 @@ app.get('/api/actor/id/:actorId/movies', (req, res) => {
         })
     })
 });
-app.get('/api/actor/id/:actorId/data', (req, res) => {
-    console.log(`Request for actor data by id:${req.params.actorId}`)
-    var id = mongoose.Types.ObjectId(req.params.actorId);
-    actorModel.findById(id, (err, data) => {
-        if (err) {
-            res.send(err);
-            return;
-        }
-        var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
-        rxjs.forkJoin(observables).subscribe(movieModels => {
-            var result = {
-                _id: data._id,
-                name: data.name,
-                movies: data.movies,
-                birth: data.birth,
-                movieData: movieModels
-            }
-            res.send(result);
-        })
-    })
-}); //
+// app.get('/api/actor/id/:actorId/data', (req, res) => {
+//     console.log(`Request for actor data by id:${req.params.actorId}`)
+//     var id = mongoose.Types.ObjectId(req.params.actorId);
+//     actorModel.findById(id, (err, data) => {
+//         if (err) {
+//             res.send(err);
+//             return;
+//         }
+//         var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
+//         rxjs.forkJoin(observables).subscribe(movieModels => {
+//             var result = {
+//                 _id: data._id,
+//                 name: data.name,
+//                 movies: data.movies,
+//                 birth: data.birth,
+//                 movieData: movieModels,
+//                 total_rating: data.total_rating,
+//                 total_revenue: data.total_revenue,
+//             }
+//             res.send(result);
+//         })
+//     })
+// });
 app.post('/api/actor/moviecount/', (req, res) => {
     console.log(`Request(POST) for multiple actors by id`)
     var observables = [];

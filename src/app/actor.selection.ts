@@ -29,7 +29,7 @@ export class ActorSelection {
                 if (this.actorData.size > ActorSelection.MAX_ACTORS) {
                     this.actorData.delete(this.actorData.keys().next().value);
                 }
-                this._actorService.triggerActorSelectionChangedHandlers();
+                this._actorService.triggerActorSelectionChangedHandlers(actor, movies, color);
             });
         }
     }

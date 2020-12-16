@@ -31,10 +31,10 @@ export class ActorService implements OnInit {
     public addActorSelectionChangedHandler(f: any): void {
         this.actorSelectionChangedhandlers.push(f);
     }
-    public triggerActorSelectionChangedHandlers() {
+    public triggerActorSelectionChangedHandlers(actor, movies, color) {
         this.actorSelectionChangedhandlers.forEach(handler => {
             if (handler && {}.toString.call(handler) === '[object Function]') {
-                handler();
+                handler(actor, movies, color);
             }
         })
     }
