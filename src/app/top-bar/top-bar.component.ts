@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ActorRepository } from '../actor.repository';
+import { ActorSelection } from '../actor.selection';
 import { ActorService } from '../actor.service';
 
 @Component({
@@ -14,10 +15,35 @@ export class TopBarComponent {
 
   constructor(
     private _actorRepository: ActorRepository,
-    private _actorService: ActorService) { }
+    private _actorService: ActorService, private _actorSelection: ActorSelection) { }
 
   reset(e) {
     this._actorService.triggerResetHandlers();
+  }
+
+  // randomActor(e) {
+  //   this._actorRepository.getRandomActor().subscribe(actor => {
+  //     this._actorService.triggerSearchForActorHandlers(actor[0]);
+  //     this._actorService.triggerActorSelectedHandlers(actor[0]);
+  //   }, (err) => {
+  //     console.error(err);
+  //   });
+  // }
+
+  randomActor(e) {
+    this._actorRepository.getRandomMovieInRange(
+      this._actorSelection.getLeftTimeRangeBound(),
+      this._actorSelection.getRightTimeRangeBound()
+      ).subscribe(movie => {
+        const randomActor = movie[0].actors[Math.floor(Math.random() * movie[0].actors.length)];
+        console.log(randomActor)
+        this._actorRepository.getActorById(randomActor).subscribe(actor => {
+          this._actorService.triggerSearchForActorHandlers(actor);
+          this._actorService.triggerActorSelectedHandlers(actor);
+        });
+    }, (err) => {
+      console.error(err);
+    });
   }
 
   report(e) {

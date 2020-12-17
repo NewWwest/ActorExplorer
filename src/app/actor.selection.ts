@@ -13,6 +13,7 @@ export class ActorSelection {
     constructor(private _actorService: ActorService, private _actorRepository: ActorRepository) {
         this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
         this._actorService.addResetHandlers(this.clearSelection.bind(this));
+        this._actorService.addTimeRangeHandler(this.storeTimeRange.bind(this));
 
     }
 
@@ -20,6 +21,8 @@ export class ActorSelection {
     private static readonly SCHEME = d3.schemeSet2;
     private actorData: Map<Actor, ActorData> = new Map<Actor, ActorData>();
     private colorCounter = 0;
+    private leftTimeRangeBound = 2000;
+    private rightTimeRangeBound = 2020;
 
     private actorSelected(actor: Actor): void {
         if (!this.actorData.has(actor)) {
@@ -38,6 +41,19 @@ export class ActorSelection {
             const actorData = this.actorData.get(actor);
             this._actorService.triggerActorSelectionChangedHandlers(actor, actorData.movies, actorData.color);
         }
+    }
+
+    public getLeftTimeRangeBound() {
+        return this.leftTimeRangeBound;
+    }
+
+    public getRightTimeRangeBound() {
+        return this.rightTimeRangeBound;
+    }
+ 
+    private storeTimeRange(leftBound: number, rightBound: number) {
+        this.leftTimeRangeBound = leftBound;
+        this.rightTimeRangeBound = rightBound;
     }
 
     public hasActor(actor: Actor): boolean {

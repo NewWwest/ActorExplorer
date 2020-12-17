@@ -12,6 +12,14 @@ export class ActorRepository {
 
     constructor(private _http: HttpClient) { }
 
+    getRandomMovieInRange(startYear: number, endYear: number): Observable<Movie[]> {
+        return this._http.get<Movie[]>(`http://localhost:4201/api/search/random/movie/${startYear}-${endYear}`);
+    }
+
+    getRandomActor(): Observable<Actor[]> {
+        return this._http.get<Actor[]>(`http://localhost:4201/api/search/random/`);
+    }
+
     searchActorsByName(name: string): Observable<Actor[]> {
         return this._http.get<Actor[]>(`http://localhost:4201/api/search/actorname/${name}`);
     }

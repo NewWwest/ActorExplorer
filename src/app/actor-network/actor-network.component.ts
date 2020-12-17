@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { SSL_OP_ALL } from 'constants';
 import * as d3 from 'd3';
 import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
