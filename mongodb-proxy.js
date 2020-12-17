@@ -162,4 +162,32 @@ app.get('/api/search/actorname/:name', (req, res) => {
         }
     })
 });
+
+app.get('/api/search/random/', (_, res) => {
+    console.log('Requested random actor');
+    actorModel.aggregate().sample(1).exec((err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    })
+
+})
+
+app.get('/api/search/random/movie/:range', (req, res) => {
+    console.log(`Requested random movie from time range: ${req.params.range}`);
+    let range = req.params.range.split("-")
+    movieModel.aggregate([{ "$match": { "year": { "$gte": parseInt(range[0]), "$lte": parseInt(range[1]) } } }]).sample(1).exec((err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    })
+
+})
+
+
+
 app.listen(4201, () => { console.log('Listening for requests') });
