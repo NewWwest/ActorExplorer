@@ -60,6 +60,11 @@ export class ActorSelection {
         this.actorData = new Map<Actor, ActorData>();
         this._actorService.triggerActorSelectionChangedHandlers(null, null, null);
     }
+
+    public removeActorFromSelection(actor: Actor): void {
+        this.actorData.delete(actor);
+        this._actorService.triggerActorSelectionChangedHandlers(actor, null, null);
+    }
 }
 
 interface ActorData {

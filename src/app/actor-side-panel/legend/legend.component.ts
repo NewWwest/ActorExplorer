@@ -23,16 +23,11 @@ export class LegendComponent implements OnInit {
       .append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)
 
-
-    // //  Update legend
-
-
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
 
 
   syncActors(): void {
-
     const groups = this.svg.selectAll('g')
       .data(this._actorSelection.getSelectedActors(), (d: Actor) => d._id)
       .join(
@@ -54,18 +49,16 @@ export class LegendComponent implements OnInit {
         .attr('transform', `translate(${-this.width}, 0)`))
         .attr('opacity', 0)
         .remove()
-      )
-    // this.svg
-    //   .data(data, (d: Actor) => d._id)
-    //   .join('g')
+    ).on("click", e => this._actorSelection.removeActorFromSelection(e.target.parentNode.__data__ as Actor))
 
-    // const legendGroup = this.legendElement.append('g')
-    //   .attr('transform', `translate(${20 + this.graph_width}, ${30 * this.legendElement.selectChildren('g').size()})`)
     groups.append('rect')
       .attr('width', 20)
       .attr('height', 20)
       .attr('fill', d => this._actorSelection.getSelectedActorColor(d).formatRgb())
       .attr('stroke', d => this._actorSelection.getSelectedActorColor(d).darker().formatRgb())
+      .on("mouseover", (e, d) => d3.select(e.target).attr('fill', this._actorSelection.getSelectedActorColor(d).brighter().formatRgb()))
+      .on("mouseout", (e, d) => d3.select(e.target).attr('fill', this._actorSelection.getSelectedActorColor(d).formatRgb()));
+
     groups.append('text')
       .attr('x', 30)
       .attr('y', 10)

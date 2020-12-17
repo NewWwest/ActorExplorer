@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { SSL_OP_ALL } from 'constants';
 import * as d3 from 'd3';
 import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
@@ -309,9 +310,16 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   expandNode(actor: Actor, movies, color) {
-    if (actor == null) {
+    if (movies == null) {
+      if (actor != null) {
+        this.svg.selectAll("g.node").filter((node: any) => node.actor._id == actor._id).call(s => {
+          s.select('circle').style('stroke', 'black');
+          s.select('circle').style('stroke-width', '2px');
+        });
+      }
       return;
     }
+
     let node = this.nodes.find(a => a.actor._id == actor._id);
     for (let i = 0; i < movies.length; i++) {
       if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
