@@ -8,6 +8,8 @@ import { Movie } from './models/movie';
     providedIn: 'root',
 })
 export class ActorRepository {
+    private getActorByIdcache: Map<string, Actor> = new Map<string, Actor>();
+
     constructor(private _http: HttpClient) { }
 
     searchActorsByName(name: string): Observable<Actor[]> {
@@ -21,8 +23,17 @@ export class ActorRepository {
     getActorMovieCounts(ids: string[]): Observable<{_id: string, count: number}[]> {
         return this._http.post<{_id: string, count: number}[]>(`http://localhost:4201/api/actor/moviecount/`, ids);
     }
-    
+
     getActorById(id: string): Observable<Actor> {
+        if (this.getActorByIdcache.has(id)) {
+            console.log(`Returning cached actor by id ${id}`)
+            return new Observable<Actor>(subscriber => {
+                subscriber.next(this.getActorByIdcache.get(id));
+                subscriber.complete();
+            });
+        }
+        const observable = this._http.get<Actor>(`http://localhost:4201/api/actor/id/${id}`);
+        observable.pipe().subscribe(actor => this.getActorByIdcache.set(id, actor));
         return this._http.get<Actor>(`http://localhost:4201/api/actor/id/${id}`);
     }
 
@@ -41,10 +52,6 @@ export class ActorRepository {
     getMoviesOfAnActor(actorId: string): Observable<Movie[]> {
         return this._http.get<Movie[]>(`http://localhost:4201/api/actor/id/${actorId}/movies`);
     }
-    
-    // getActorDataById(actorId: string): Observable<ActorData> {
-    //     return this._http.get<ActorData>(`http://localhost:4201/api/actor/id/${actorId}/data`);
-    // }
 
     getMovieListbetweenActors(actorId1: string, actorId2: string, movies: Movie[]): Movie[] {
         return movies.filter(movie =>

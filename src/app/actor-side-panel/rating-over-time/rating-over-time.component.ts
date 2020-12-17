@@ -20,7 +20,7 @@ export class RatingOverTimeComponent implements OnInit {
   private actorGraphs: Map<Actor, ActorGraph> = new Map<Actor, ActorGraph>();
   private width = 800;
   private height = 400;
-  private margin = { top: 5, right: 120, bottom: 5, left: 60 };
+  private margin = { top: 5, right: 120, bottom: 5, left: 70 };
   private graph_width = this.width - this.margin.left - this.margin.right;
   private upper_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
   private bottom_graph_height = this.height / 2 - this.margin.top - this.margin.bottom;
@@ -72,7 +72,7 @@ export class RatingOverTimeComponent implements OnInit {
         actorGraph.areaRating.x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff));
         actorGraph.areaRevenue.x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff));
 
-        actorGraph.areaRating.y1(m => this.yScaleRating(+m.in_range * m.avg_rating / 2));
+        actorGraph.areaRating.y1(m => this.yScaleRating(+m.in_range * m.avg_rating));
         actorGraph.areaRevenue.y1(m => this.yScaleRevenue(+m.in_range * m.avg_revenue) + this.upper_graph_height);
 
 
@@ -113,7 +113,7 @@ export class RatingOverTimeComponent implements OnInit {
     // Upper area
     const areaRating = d3.area<MovieAveragePlot>()
       .x(m => this.xScale(100 * (+new Date(m.movie.year, m.movie.month, m.movie.day) - +birth) / ageDiff))
-      .y1(m => this.yScaleRating(m.avg_rating / 2))
+      .y1(m => this.yScaleRating(m.avg_rating))
       .y0(this.upper_graph_height)
       .curve(d3.curveBasis);
     const topAreaGraphElement = actorGraphElement.append('path')
@@ -177,7 +177,7 @@ export class RatingOverTimeComponent implements OnInit {
     data.append('line')
       // .attr('id', "topline")
       .transition()
-      .attr('y1', m => this.yScaleRating(m.movie.vote_average / 2) - this.upper_graph_height)
+      .attr('y1', m => this.yScaleRating(m.movie.vote_average) - this.upper_graph_height)
       .duration(1000)
       .attr('y2', this.yScaleRating(0) - this.upper_graph_height)
       .attr('stroke', stemColor.formatRgb());
@@ -185,7 +185,7 @@ export class RatingOverTimeComponent implements OnInit {
     data.append('circle')
       // .attr('id', "topcircle")
       .transition()
-      .attr('cy', m => this.yScaleRating(m.movie.vote_average / 2) - this.upper_graph_height)
+      .attr('cy', m => this.yScaleRating(m.movie.vote_average) - this.upper_graph_height)
       .duration(1000)
       .attr('r', '4')
       .attr('fill', areaColor.formatRgb())
@@ -257,12 +257,16 @@ export class RatingOverTimeComponent implements OnInit {
     }
     this.yScaleRevenueElement
       .transition().duration(transitionTimeMultiplier * 1000)
-      .call(d3.axisLeft(this.yScaleRevenue).ticks(5, '$,.0s'));
+      .call(d3.axisLeft(this.yScaleRevenue)
+        .ticks(5)
+        .tickFormat((val, index) => index > 0 ?  (val.valueOf() / 1000000).toLocaleString() + 'M' : '')
+      );
 
     this.xScaleElement
       .transition().duration(transitionTimeMultiplier * 1000)
-      .call(d3.axisBottom(this.xScale));
-
+      .call(d3.axisBottom(this.xScale)
+        .tickFormat((val, index) => (index > 0) ? val.toLocaleString() : '')
+      );
   }
 
   ngOnInit(): void {
@@ -272,7 +276,7 @@ export class RatingOverTimeComponent implements OnInit {
       .range([0, this.graph_width])
 
     this.yScaleRating = d3.scaleLinear()
-      .domain([0, 5])
+      .domain([0, 10])
       .range([this.upper_graph_height, 0]);
 
     this.yScaleRevenue = d3.scaleLinear()
@@ -296,25 +300,48 @@ export class RatingOverTimeComponent implements OnInit {
     this.xScaleElement = axes.append('g')
       .attr('transform', `translate(0,${this.upper_graph_height})`)
       .attr('shape-rendering', 'geometricPrecision ')
-      .call(d3.axisBottom(this.xScale));
+      .call(d3.axisBottom(this.xScale)
+        .tickFormat((val, index) => (index > 0) ? val.toLocaleString() : '')
+      );
 
+    this.xScaleElement.append('text')
+      .text("Age (years)")
+      .attr('fill', 'black')
+      .attr('transform', `translate(${1.1 * this.graph_width}, ${0})scale(1.3,1.3)`)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central');
+      
     this.yScaleRatingElement = axes.append('g')
       .attr('transform', `translate(0,0)`)
       .attr('shape-rendering', 'geometricPrecision ')
       .call(d3.axisLeft(this.yScaleRating).ticks(5));
 
+    this.yScaleRatingElement.append('text')
+      .text("Rating")
+      .attr('fill', 'black')
+      .attr('transform', `translate(${-50}, ${1.5 * this.upper_graph_height - this.upper_graph_height})rotate(-90)scale(1.3,1.3)`)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central');
+
     this.yScaleRevenueElement = axes.append('g')
       .attr('transform', `translate(0,${this.upper_graph_height})`)
       .attr('shape-rendering', 'geometricPrecision ')
-      .call(d3.axisLeft(this.yScaleRevenue).ticks(5, '$,.0s'));
+      .call(d3.axisLeft(this.yScaleRevenue)
+        .ticks(5)
+        .tickFormat((val, index) => index > 0 ?  (val.valueOf() / 1000000).toLocaleString() + 'M' : ''));
+
+    this.yScaleRevenueElement.append('text')
+      .text("Revenue ($)")
+      .attr('fill', 'black')
+      .attr('transform', `translate(${-50}, ${1.5 * this.bottom_graph_height - this.bottom_graph_height})rotate(-90)scale(1.3,1.3)`)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central');
 
 
-
-
-    // this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
     this._actorService.addTimeRangeHandler(this.timeRangeChanged.bind(this));
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
+
 
   syncActors(): void {
       // Add new actors
@@ -332,10 +359,6 @@ export class RatingOverTimeComponent implements OnInit {
         }
       });
   }
-
-  // actorSelected(evtdata) {
-  //   this.AddActor(evtdata);
-  // }
 
   timeRangeChanged(leftBound, rightBound) {
     this._actorSelection.getSelectedActors().forEach(actor => {

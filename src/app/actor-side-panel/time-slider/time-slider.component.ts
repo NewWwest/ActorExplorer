@@ -21,9 +21,9 @@ export class TimeSliderComponent implements OnInit {
   private rightHandle;
   private actorRegions: d3.Selection<any, any, any, any>;
   private margin = { top: 40, right: 20, bottom: 10, left: 20 };
-  private leftBound: number = this.margin.left;
-  private rightBound: number = this.leftBound + 100;
-  
+  private rightBound: number = this.width - this.margin.right;
+  private leftBound: number = this.rightBound - 100;
+
 
   constructor(private _actorRepository: ActorRepository, private _actorService: ActorService, private _actorSelection: ActorSelection) { }
 
@@ -61,7 +61,12 @@ export class TimeSliderComponent implements OnInit {
         .attr('shape-rendering', 'geometricPrecision ')
         .call(d3.axisBottom(this.xScale).tickFormat(d3.format('d')));
 
-
+      xElement.append('text')
+        .text("Movies Over the Years")
+        .attr('fill', 'black')
+        .attr('transform', `translate(${this.width/2}, ${30})scale(1.2,1.2)`)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'central');
       svg
         .append('g')
         .selectAll('rect')

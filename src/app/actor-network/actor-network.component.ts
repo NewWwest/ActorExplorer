@@ -27,6 +27,7 @@ export class ActorNetworkComponent implements OnInit {
   averageRevenueMinScale = 0;
   votingMaxScale = 10;
   votingMinScale = 5;
+  zoomLevel = 1;
 
   startingActor = "Zac Efron"
   actors: Actor[] = [];
@@ -258,7 +259,11 @@ export class ActorNetworkComponent implements OnInit {
 
     this.svg.call(d3.zoom()
       .on("zoom", e => {
+        this.zoomLevel = Math.sqrt(e.transform.k);
         this.g.attr("transform", e.transform);
+        this.svg.selectAll("text")
+          .style("font-size", `${12 / this.zoomLevel}px`)
+          .style("stroke-width", `${2 / this.zoomLevel}`)
       })
     );
   }
@@ -304,10 +309,13 @@ export class ActorNetworkComponent implements OnInit {
   }
 
   expandNode(actor: Actor, movies, color) {
+    if (actor == null) {
+      return;
+    }
     let node = this.nodes.find(a => a.actor._id == actor._id);
     for (let i = 0; i < movies.length; i++) {
       if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
-        this.movies.push(movies[i])
+        this.movies.push(movies[i]);
       }
     }
 
@@ -380,7 +388,7 @@ export class ActorNetworkComponent implements OnInit {
     let selectedActors = this._actorSelection.getSelectedActors();
     let isSlected = this.isNodeSelected(selectedActors, node);
     evt.target.style['stroke'] = isSlected ? this._actorSelection.getSelectedActorColor(node.actor) : 'black';
-    evt.target.style['stroke-width'] = isSlected ? '3px' : '1px';
+    evt.target.style['stroke-width'] = isSlected ? '5px' : '2px';
   }
 
   edgeMove(d) {
@@ -510,17 +518,22 @@ export class ActorNetworkComponent implements OnInit {
     nodeEnter.append("text")
       .style("text-anchor", "middle")
       .attr("y", 2)
-      .style("stroke-width", "1px")
-      .style("stroke-opacity", 0.75)
-      .style("stroke", "white")
-      .style("font-size", "8px")
+      .style("stroke-width", `${2 / this.zoomLevel}px`)
+      .style("stroke-opacity", 0.9)
+      .style("stroke-linecap", "round")
+      .style("fill-opacity", 1.0)
+      .style("stroke", "black")
+      .style("font-size", `${12 / this.zoomLevel}px`)
       .text((d) => d.actor.name)
       .style("pointer-events", "none")
 
     nodeEnter.append("text")
       .style("text-anchor", "middle")
+      .style("stroke-width", `${1 / this.zoomLevel}px`)
+      .style("stroke-linecap", "round")
       .attr("y", 2)
-      .style("font-size", "8px")
+      .style("fill", "white")
+      .style("font-size", `${12 / this.zoomLevel}px`)
       .text((d) => d.actor.name)
       .style("pointer-events", "none")
 
@@ -528,7 +541,7 @@ export class ActorNetworkComponent implements OnInit {
     let selectedActors = this._actorSelection.getSelectedActors();
     this.svg.selectAll("g.node > circle")
       .style("stroke-width", (n: ActorNode) => {
-        return this.isNodeSelected(selectedActors, n) ? "3px" : "1px";
+        return this.isNodeSelected(selectedActors, n) ? "5px" : "2px";
       });
 
     this.svg.selectAll("g.node > circle")

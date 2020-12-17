@@ -12,6 +12,8 @@ import { Movie } from './models/movie';
 export class ActorSelection {
     constructor(private _actorService: ActorService, private _actorRepository: ActorRepository) {
         this._actorService.addActorSelectedHandler(this.actorSelected.bind(this));
+        this._actorService.addResetHandlers(this.clearSelection.bind(this));
+
     }
 
     public static readonly MAX_ACTORS = 3;
@@ -31,6 +33,10 @@ export class ActorSelection {
                 }
                 this._actorService.triggerActorSelectionChangedHandlers(actor, movies, color);
             });
+        } else {
+            // Trigger it anyway, to make sure nodes expand when clicked again
+            const actorData = this.actorData.get(actor);
+            this._actorService.triggerActorSelectionChangedHandlers(actor, actorData.movies, actorData.color);
         }
     }
 
@@ -48,6 +54,11 @@ export class ActorSelection {
 
     public getSelectedActorColor(actor: Actor): d3.RGBColor | d3.HSLColor {
         return this.actorData.get(actor).color;
+    }
+
+    public clearSelection(): void {
+        this.actorData = new Map<Actor, ActorData>();
+        this._actorService.triggerActorSelectionChangedHandlers(null, null, null);
     }
 }
 
