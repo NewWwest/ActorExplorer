@@ -14,7 +14,7 @@ export class LegendComponent implements OnInit {
   constructor(private _actorService: ActorService, private _actorSelection: ActorSelection) { }
   private width = 700;
   private height = 20;
-  private margin = { top: 5, right: 20, bottom: 5, left: 20 };
+  private margin = { top: 10, right: 20, bottom: 5, left: 20 };
   private svg: d3.Selection<any, any, any, any>;
 
   ngOnInit(): void {
