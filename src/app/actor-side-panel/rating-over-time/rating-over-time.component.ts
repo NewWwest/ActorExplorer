@@ -1,7 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
-import { ActorRepository } from 'src/app/actor.repository';
-import { forkJoin } from 'rxjs';
 import { Movie } from 'src/app/models/movie';
 import { Actor } from 'src/app/models/actor';
 import { ScaleLinear, tickStep } from 'd3';
@@ -31,9 +29,6 @@ export class RatingOverTimeComponent implements OnInit {
   private yScaleRevenue: ScaleLinear<number, number, never>;
   private yScaleRevenueElement: d3.Selection<any, any, any, any>;
   private innerElement: d3.Selection<any, any, any, any>;
-  private colorCounter: number = 0;
-
-  private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
 
   movingAverageLeft(data: number[], amount: number): number[] {
     return data.map((_, i, arr) => {
@@ -175,7 +170,6 @@ export class RatingOverTimeComponent implements OnInit {
 
 
     data.append('line')
-      // .attr('id', "topline")
       .transition()
       .attr('y1', m => this.yScaleRating(m.movie.vote_average) - this.upper_graph_height)
       .duration(1000)
@@ -183,7 +177,6 @@ export class RatingOverTimeComponent implements OnInit {
       .attr('stroke', stemColor.formatRgb());
 
     data.append('circle')
-      // .attr('id', "topcircle")
       .transition()
       .attr('cy', m => this.yScaleRating(m.movie.vote_average) - this.upper_graph_height)
       .duration(1000)
@@ -193,20 +186,15 @@ export class RatingOverTimeComponent implements OnInit {
 
 
     let l2 = data.append('line')
-      // .attr('id', "botline")
       .attr('y2', m => this.yScaleRevenue(m.movie.revenue))
       .attr('y1', this.yScaleRevenue(0))
       .attr('stroke', stemColor.formatRgb());
 
     let c2 = data.append('circle')
-      // .attr('id', "botcircle")
       .attr('cy', m => this.yScaleRevenue(m.movie.revenue))
       .attr('r', '4')
       .attr('fill', areaColor.formatRgb())
       .attr('stroke', stemTopColor.formatRgb());
-
-
-
 
     this.actorGraphs.set(actor, new ActorGraph(
       actorGraphElement,
@@ -288,7 +276,6 @@ export class RatingOverTimeComponent implements OnInit {
       .attr('font-family', 'sans-serif')
       .attr('font-size', '10')
       .attr('text-anchor', 'end');
-    this.svg = svg;
 
     this.innerElement = svg.append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`)

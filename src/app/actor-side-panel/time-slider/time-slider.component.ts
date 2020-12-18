@@ -55,7 +55,7 @@ export class TimeSliderComponent implements OnInit {
       const y = d3.scaleLinear()
         .domain([0, maxBin * 1.2])
         .range([this.height, 0]);
-      
+
       const xElement = svg.append('g')
         .attr('transform', `translate(0,${this.height})`)
         .attr('shape-rendering', 'geometricPrecision ')
@@ -93,8 +93,7 @@ export class TimeSliderComponent implements OnInit {
           }
           this.updateBody();
         });
-        // .on('end', endHandler);
-  
+
       const dragLeft = d3.drag<SVGRectElement, number>()
         .subject(pointer => this.leftBound - pointer.x)
         .on('drag', event => {
@@ -103,8 +102,7 @@ export class TimeSliderComponent implements OnInit {
           }
           this.updateBody();
         });
-        // .on('end', endHandler);
-  
+
       const dragRight = d3.drag<SVGRectElement, number>()
         .subject(pointer => this.rightBound - pointer.x)
         .on('drag', event => {
@@ -113,7 +111,7 @@ export class TimeSliderComponent implements OnInit {
           }
           this.updateBody();
         })
-        // .on('end', endHandler);
+
       this.actorRegions = svg.append('g');
 
       this.timeSection = svg.append('rect')
@@ -121,22 +119,22 @@ export class TimeSliderComponent implements OnInit {
         .attr('fill-opacity', .25)
         .attr('cursor', 'move')
         .call(drag);
-  
+
       this.leftHandle = svg.append('rect')
         .attr('height', this.height)
         .attr('width', this.handleWidth)
         .attr('fill-opacity', .25)
         .attr('cursor', 'ew-resize')
         .call(dragLeft);
-  
+
       this.rightHandle = svg.append('rect')
         .attr('height', this.height)
         .attr('width', this.handleWidth)
         .attr('fill-opacity', .25)
         .attr('cursor', 'ew-resize')
         .call(dragRight);
-  
-  
+
+
       this.leftHandle.attr('x', this.leftBound);
       this.rightHandle.attr('x', this.rightBound);
       this.updateBody();
@@ -177,7 +175,6 @@ export class TimeSliderComponent implements OnInit {
         .duration(1000)
         .call(thing => thing.remove())
         )
-      
     );
   }
 

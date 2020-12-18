@@ -6,6 +6,9 @@ import { ActorService } from './actor.service';
 import { Actor } from './models/actor';
 import { Movie } from './models/movie';
 
+
+// This injectable contains the selection logic, since we must ensure that all components are aware of the same
+// selection. We also assign colors to actors in our selection here.
 @Injectable({
     providedIn: 'root',
 })

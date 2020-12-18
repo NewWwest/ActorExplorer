@@ -1,6 +1,9 @@
 import { Injectable, OnInit } from '@angular/core';
 import { Actor } from './models/actor';
 
+
+// This injectable contains all our event handlers and triggers, used to make things trigger between the components
+// such as selection changes, time range changes, etc.
 @Injectable({
     providedIn: 'root',
 })

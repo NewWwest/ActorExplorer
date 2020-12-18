@@ -4,6 +4,8 @@ import { Observable } from 'rxjs/internal/Observable';
 import { Actor } from './models/actor';
 import { Movie } from './models/movie';
 
+// This injectable contains the interface for retrieving data from the proxy. It also caches retrieved actors
+// since these happen to overlap a lot between the different actions performed in the UI.
 @Injectable({
     providedIn: 'root',
 })

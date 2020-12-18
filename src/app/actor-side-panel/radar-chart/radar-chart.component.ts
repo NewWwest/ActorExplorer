@@ -32,15 +32,6 @@ export class RadarChartComponent implements OnInit {
     const fullHeight = this.height + this.margin.top + this.margin.bottom;
     const armLength = Math.min(this.width, this.height) / 2;
 
-
-
-
-
-
-
-
-
-
     // - Q: Is the actor a solo star?
     //   A: Portion of movies where actor has highest total revenue of cast
     this.axes.push({label: "Top Star in Cast", scale: d3.scaleLinear().domain([0, 1]).range([0, armLength]), tickFormat: null});
@@ -62,9 +53,6 @@ export class RadarChartComponent implements OnInit {
     this.axes.push({ label: "Avg. Collaborator Movies", scale: d3.scaleLinear().domain([0, 60]).range([0, armLength]), tickFormat: null});    // domain is "Guesstimate"
 
     const axisCount = this.axes.length;
-
-
-
     const svg = d3.select('p#radar').append('svg')
       .attr('viewBox', `0 0 ${fullWidth} ${fullHeight}`);
 
@@ -136,7 +124,7 @@ export class RadarChartComponent implements OnInit {
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
 
-    // Because both d3 and typescript suck, we really have to re-invent the wheel here...
+    // Convenience method for metric calculation
     private maxObject<T>(arr: T[], accessor: (t: T) => number): T {
       let obj: T = null;
       let val = Number.NEGATIVE_INFINITY;
@@ -189,6 +177,7 @@ export class RadarChartComponent implements OnInit {
       .y0(0)
       .curve(d3.curveLinearClosed);
 
+    // Use groups to fade the area to keep the code readable
     this.radarChart.selectAll('path.data')
       .data(data, (d: ActorMetrics) => d.actor._id)
       .join(
@@ -218,27 +207,27 @@ export class RadarChartComponent implements OnInit {
       collaboratorCounts.set(collaborator._id, collaboratorCounts.get(collaborator._id) + 1);
     });
 
-    // M1: 
+    // M1
     const mainStar = actorMovies.map(movie =>
       this.maxObject<string>(movie.actors, actorId => collaboratorsMap.get(actorId).total_revenue)
     );
     const mainStarPortion = mainStar.map(str => +(str == actor._id))
       .reduce((a, b) => a + b) / actorMovies.length;
 
-    // M2: (this one's not good enough as it is, try one of the other options)
+    // M2
     const collabSame = Array.from(collaboratorCounts.values())
       .reduce((a, b) => a + b) / collaboratorCounts.size;
 
-    // M3: (never seems to change..?)
+    // M3 (never seems to change..?)
     const avgMovieCastSize = actorMovies.map(movie => movie.actors.length)
       .reduce((a, b) => a + b) / actorMovies.length;
 
-    // M4: (revenue instead of vote average seems to work better)
+    // M4 (revenue instead of vote average seems to work better)
     const collabAvgRevenue = collaborators
       .map(collaborator => collaborator.total_revenue / collaborator.movies.length)
       .reduce((a, b) => a + b) / collaborators.length;
 
-    // M5: (barely ever changes)
+    // M5 (differences are relatively small)
     const collabAvgMovieCount = collaborators
       .map(arr => arr.movies.length)
       .reduce((a, b) => a + b) / collaborators.length;
@@ -249,7 +238,7 @@ export class RadarChartComponent implements OnInit {
 }
 interface ActorMetrics {
   actor: Actor,
-  metrics: number[]
+  metrics: number[];
 }
 
 interface Axis<Range, Output> {

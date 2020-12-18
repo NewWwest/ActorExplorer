@@ -21,15 +21,6 @@ export class TopBarComponent {
     this._actorService.triggerResetHandlers();
   }
 
-  // randomActor(e) {
-  //   this._actorRepository.getRandomActor().subscribe(actor => {
-  //     this._actorService.triggerSearchForActorHandlers(actor[0]);
-  //     this._actorService.triggerActorSelectedHandlers(actor[0]);
-  //   }, (err) => {
-  //     console.error(err);
-  //   });
-  // }
-
   randomActor(e) {
     this._actorRepository.getRandomMovieInRange(
       this._actorSelection.getLeftTimeRangeBound(),
