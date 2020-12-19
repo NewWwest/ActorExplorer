@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import * as d3 from 'd3';
-import { forkJoin, Observable } from 'rxjs';
 import { ActorRepository } from '../actor.repository';
 import { ActorSelection } from '../actor.selection';
 import { ActorService } from '../actor.service';
 import { Actor } from '../models/actor';
 import { Movie } from '../models/movie';
+import { ActorNode, MovieLink, colorSchemaEnum, ColorDataEnum } from './actor-network-models';
 
 @Component({
   selector: 'app-actor-network',
@@ -57,7 +57,7 @@ export class ActorNetworkComponent implements OnInit {
 
   ngOnInit(): void {
     this.edgeTooltip = d3.select("#edge-tooltip")
-    this.sizeSvg();
+    this.initSvg();
     this.createColor();
     this._actorRepository.getActorByName(this.startingActor).subscribe(actor => {
       this.addActor(actor, this.width / 2, this.height / 2, null);
@@ -72,6 +72,7 @@ export class ActorNetworkComponent implements OnInit {
     this._actorService.addShowOrHideSkeletonHandlers(this.showOrHideSkeleton.bind(this));
   }
 
+  ///configures the color scheme based on component state and repaints the color legend
   createColor() {
     let interpolator = null;
     let min = 0;
@@ -173,6 +174,7 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
+  ///adds actor to local component collections
   addActor(actor: Actor, x: number, y: number, parentActorId: string) {
     if (this.simulation)
       this.simulation.stop();
@@ -194,6 +196,7 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
+  ///ensures that all painted actors are connect by appropriate edges
   addMissingEdges() {
     if (this.simulation)
       this.simulation.stop();
@@ -250,7 +253,7 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
-  sizeSvg(): void {
+  initSvg(): void {
     this.svg = d3.select(".graph-svg");
     this.g = this.svg.append("g");
     this.svg.attr("width", this.width)
@@ -268,6 +271,7 @@ export class ActorNetworkComponent implements OnInit {
     );
   }
 
+  ///recreates the network visualisation to match new data
   createForceNetwork() {
     this.addMissingEdges();
     this.simulation = d3.forceSimulation<ActorNode, MovieLink>(this.nodes)
@@ -301,6 +305,7 @@ export class ActorNetworkComponent implements OnInit {
     this.simulation.alpha(0.2).restart();
   }
 
+  //event, on node clicked
   clickNode(e) {
     let actorId = e.target.__data__.actor._id;
     let actor = this.actors.find(a => a._id == actorId);
@@ -308,7 +313,9 @@ export class ActorNetworkComponent implements OnInit {
     this._actorService.triggerActorSelectedHandlers(actor);
   }
 
+  ///load top collaborator. execcutes on evt from actor.service
   expandNode(actor: Actor, movies, color) {
+    //null checks
     if (movies == null) {
       if (actor != null) {
         this.svg.selectAll("g.node").filter((node: any) => node.actor._id == actor._id).call(s => {
@@ -316,9 +323,11 @@ export class ActorNetworkComponent implements OnInit {
           s.select('circle').style('stroke-width', '2px');
         });
       }
+      this.createForceNetwork();
       return;
     }
 
+    //add the movies
     let node = this.nodes.find(a => a.actor._id == actor._id);
     for (let i = 0; i < movies.length; i++) {
       if (this.movies.find(temp => temp._id == movies[i]._id) == null) {
@@ -326,6 +335,7 @@ export class ActorNetworkComponent implements OnInit {
       }
     }
 
+    //fetch missing actor data from the API
     let actorsWithColabs = this.findMissingActorsWithColabCount(movies);
     if (actorsWithColabs == null) {
       console.log(`No more actors to be added for ${actor.name}`)
@@ -345,6 +355,7 @@ export class ActorNetworkComponent implements OnInit {
         }
       });
 
+      //sort the list so we can pick the top N
       actorsWithColabsArray.sort((l, r) => {
         if (l.count > r.count)
           return -1;
@@ -365,7 +376,7 @@ export class ActorNetworkComponent implements OnInit {
     });
   }
 
-  //Call always AFTER adding the node
+  ///logic behind selecting a node. NOTE: Call always AFTER adding the node you want to select
   selectNode(actorId: string) {
     this.nodes.forEach(n => {
       if (n.actor._id == actorId) {
@@ -383,12 +394,14 @@ export class ActorNetworkComponent implements OnInit {
     })
   }
 
+  ///event: on entering the node
   nodeOver(evt) {
     let node: ActorNode = evt.target.__data__;
     evt.target.style['stroke'] = this.getColor(node);
     evt.target.style['stroke-width'] = '10px';
   }
 
+  ///event: on leaving the node
   nodeOut(evt) {
     let actorId = evt.target.__data__.actor._id;
     let node = this.nodes.find(a => a.actor._id == actorId)
@@ -398,12 +411,14 @@ export class ActorNetworkComponent implements OnInit {
     evt.target.style['stroke-width'] = isSlected ? '5px' : '2px';
   }
 
+  ///event: adjust the tooltip position when the mouse moves
   edgeMove(d) {
     this.edgeTooltip
       .style("left", (d.layerX + 20) + "px")
       .style("top", (d.layerY) + "px")
   }
 
+  ///event: on entering the edge
   edgeOver(evt) {
     let idStrings = evt.target.id.split('-');
     let movies = this._actorRepository.getMovieListbetweenActors(idStrings[0], idStrings[1], this.movies)
@@ -414,12 +429,14 @@ export class ActorNetworkComponent implements OnInit {
     evt.target.style.opacity = '0.75';
   }
 
+  ///event: on leaving the edge
   edgeOut(evt) {
     this.edgeTooltip.html('');
     this.edgeTooltip.style("opacity", 0)
     evt.target.style.opacity = '0'
   }
 
+  ///called from actor.service when user searches for an actor
   addOrSelectNewActor(actor: Actor) {
     let node = this.nodes.find(a => a.actor._id == actor._id);
     if (node == null) {
@@ -461,6 +478,7 @@ export class ActorNetworkComponent implements OnInit {
     return e.source.parentActorId != e.target.actor._id && e.target.parentActorId != e.source.actor._id;
   }
 
+  ///called from createForceNetwork, recreates edges
   addAndStyleEdges() {
     var edgeEnter = this.g.selectAll("g.edge")
       .data(this.edges.filter(e => !e.isSkeleton))
@@ -494,6 +512,7 @@ export class ActorNetworkComponent implements OnInit {
       .on("mouseout", this.edgeOut.bind(this))
       .on("mousemove", this.edgeMove.bind(this));
 
+    //skeleton edges
     var skeletonEnter = this.g.selectAll("g.skeleton")
       .data(this.edges.filter(e => e.isSkeleton), (e) => `S${e.source.actor._id}-${e.target.actor._id}`)
       .enter()
@@ -507,6 +526,7 @@ export class ActorNetworkComponent implements OnInit {
       .style("pointer-events", "none");
   }
 
+  ///called from createForceNetwork, recreates nodes
   addAndStyleNodes() {
     var nodeEnter = this.g.selectAll("g.node")
       .data(this.nodes, (d: ActorNode) => { return d.actor._id })
@@ -561,6 +581,7 @@ export class ActorNetworkComponent implements OnInit {
     return selectedActors.find(a => a._id == node.actor._id) != null
   }
 
+  ///unified logic behind getting collor from color scheme
   getColor(node: ActorNode) {
     switch (this.colorType) {
       case ColorDataEnum.revenueTotal:
@@ -574,12 +595,14 @@ export class ActorNetworkComponent implements OnInit {
     }
   }
 
+  ///event: when user changes the color scheme
   changeColors(e) {
     this.createColor();
     this.svg.selectAll("circle")
       .style("fill", (n: ActorNode) => this.getColor(n));
   }
 
+  ///event: on being dragged
   dragged(evt, node) {
     if (this.simulation)
       this.simulation.stop()
@@ -592,6 +615,7 @@ export class ActorNetworkComponent implements OnInit {
     this.simulation.restart();
   }
 
+  ///called every itteration by d3. Keep this lightweight or app will lag
   updateNetwork() {
     this.svg.selectAll("line")
       .attr("x1", function (d: any) { return d.source.x })
@@ -605,6 +629,7 @@ export class ActorNetworkComponent implements OnInit {
       });
   }
 
+  ///reset button, called from actor.service
   reset() {
     if (this.simulation)
       this.simulation.stop();
@@ -628,39 +653,9 @@ export class ActorNetworkComponent implements OnInit {
       this.simulation.restart();
   }
 
+  ///skeleton button, called from actor.service
   showOrHideSkeleton(skeletonShown: boolean) {
     this.skeletonShown = skeletonShown;
     this.g.selectAll("g.skeleton line").style("opacity", (e) => skeletonShown ? 1 : 0)
   }
-}
-
-interface ActorNode extends d3.SimulationNodeDatum {
-  actor: Actor;
-  movieIds: string[];
-  movieCount: number;
-  skeletonNode: boolean;
-  parentActorId?: string;
-  revenueTotal: number;
-  revenueAverage: number;
-  voteAverage: number;
-}
-
-interface MovieLink extends d3.SimulationLinkDatum<ActorNode> {
-  width: number;
-  movieIds: string[];
-  movieTitles: string[];
-  isSkeleton: boolean;
-}
-
-enum ColorDataEnum {
-  revenueTotal = 'revenueTotal',
-  revenueAverage = 'revenueAverage',
-  voteAverage = 'voteAverage',
-  none = 'none'
-}
-enum colorSchemaEnum {
-  viridis = 'viridis',
-  magma = 'magma',
-  plasma = 'plasma',
-  heatmap = 'heatmap'
 }

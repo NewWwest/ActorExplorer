@@ -1,34 +1,34 @@
-<div style="position: absolute;left:0px;top:0px;">
+<div class="radio-button-container">
     <div>
         <mat-radio-group [(ngModel)]="colorType" (change)="changeColors($event)">
-            <div style="width: 110px; display: inline-block;">Data values:</div>
-            <mat-radio-button style="width: 150px;" [value]="ColorDataEnum.revenueTotal">
+            <div class="radio-button-group">Data values:</div>
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.revenueTotal">
                 Total revenue
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="ColorDataEnum.revenueAverage">
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.revenueAverage">
                 Average revenue
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="ColorDataEnum.voteAverage">
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.voteAverage">
                 Average rating
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="ColorDataEnum.none">
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.none">
                 None
             </mat-radio-button>
         </mat-radio-group>
     </div>
     <div>
         <mat-radio-group [(ngModel)]="colorSchema" (change)="changeColors($event)">
-            <div style="width: 110px; display: inline-block;">Color schema:</div>
-            <mat-radio-button style="width: 150px;" [value]="colorSchemaEnum.viridis">
+            <div class="radio-button-group">Color schema:</div>
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.viridis">
                 Viridis
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="colorSchemaEnum.magma">
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.magma">
                 Magma
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="colorSchemaEnum.plasma">
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.plasma">
                 Plasma
             </mat-radio-button>
-            <mat-radio-button style="width: 150px;" [value]="colorSchemaEnum.heatmap">
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.heatmap">
                 Heatmap
             </mat-radio-button>
         </mat-radio-group>
