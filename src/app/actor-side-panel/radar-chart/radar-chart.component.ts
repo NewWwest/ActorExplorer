@@ -148,10 +148,9 @@ export class RadarChartComponent implements OnInit {
 
       forkJoin(this._actorSelection.getSelectedActors().filter(actor => !this.cache.has(actor)).map(actor => {
         const actorMovies = this._actorSelection.getSelectedActorMovies(actor);
-        return forkJoin(actorMovies.flatMap(movie => movie.actors.flatMap(collaboratorId => this._actorRepository.getActorById(collaboratorId)
-        ))).pipe(map(collaborators => {
-          const metrics = this.calculateMetrics2(actor, actorMovies, collaborators);
-          return {actor, metrics} as ActorMetrics;
+        return this._actorRepository.getCollaboratorsById(actor._id).pipe(map(collaborators => {
+          const metrics = { actor, metrics: this.calculateMetrics2(actor, actorMovies, collaborators) } as ActorMetrics;
+          return metrics;
         }));
       })).subscribe(data => {
         // Re-add the cached actors in selection

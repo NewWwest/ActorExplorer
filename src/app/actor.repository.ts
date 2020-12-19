@@ -35,6 +35,10 @@ export class ActorRepository {
         return this._http.post<{ _id: string, count: number }[]>(`${this.proxy_url}/api/actor/moviecount/`, ids);
     }
 
+    getCollaboratorsById(id: string): Observable<Actor[]> {
+        return this._http.get<Actor[]>(`${this.proxy_url}/api/actor/id/${id}/collaborators`);
+    }
+
     getActorById(id: string): Observable<Actor> {
         if (this.getActorByIdcache.has(id)) {
             console.log(`Returning cached actor by id ${id}`)
@@ -46,14 +50,6 @@ export class ActorRepository {
         const observable = this._http.get<Actor>(`${this.proxy_url}/api/actor/id/${id}`);
         observable.pipe().subscribe(actor => this.getActorByIdcache.set(id, actor));
         return this._http.get<Actor>(`${this.proxy_url}/api/actor/id/${id}`);
-    }
-
-    getMovies(movieIds: string[]): Observable<Movie>[] {
-        const movies: Observable<Movie>[] = [];
-        movieIds.forEach(id => {
-            movies.push(this._http.get<Movie>(`${this.proxy_url}/api/movie/id/${id}`));
-        });
-        return movies;
     }
 
     getAllMovies(): Observable<Movie[]> {

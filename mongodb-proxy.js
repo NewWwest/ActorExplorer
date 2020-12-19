@@ -54,7 +54,7 @@ var movieModel = mongoose.model('movie', movieSchema, 'movie')
 app.get('/api/movie/id/:movieId', (req, res) => {
     console.log(`Request for movie by Id:${req.params.movieId}`)
     var id = mongoose.Types.ObjectId(req.params.movieId);
-    movieModel.findById(id, (err, data) => {
+    movieModel.findById(id).lean().exec((err, data) => {
         if (err) {
             res.send(err);
         } else {
@@ -65,7 +65,7 @@ app.get('/api/movie/id/:movieId', (req, res) => {
 
 app.get('/api/movie/allMovies', (req, res) => {
     console.log(`Request for all movies`)
-    movieModel.find({}, (err, data) => {
+    movieModel.find({}).lean().exec((err, data) => {
         if (err) {
             res.send(err);
         } else {
@@ -77,7 +77,7 @@ app.get('/api/movie/allMovies', (req, res) => {
 app.get('/api/actor/id/:actorId', (req, res) => {
     console.log(`Request for actor by Id:${req.params.actorId}`)
     var id = mongoose.Types.ObjectId(req.params.actorId)
-    actorModel.findById(id, (err, data) => {
+    actorModel.findById(id).lean().exec((err, data) => {
         if (err) {
             res.send(err);
         } else {
@@ -87,7 +87,7 @@ app.get('/api/actor/id/:actorId', (req, res) => {
 });
 app.get('/api/actor/name/:name', (req, res) => {
     console.log(`Request for actor by name:${req.params.name}`)
-    actorModel.findOne({ name: { "$regex": req.params.name } }, (err, data) => {
+    actorModel.findOne({ name: { "$regex": req.params.name } }).lean().exec((err, data) => {
         if (err) {
             res.send(err);
         } else {
@@ -98,40 +98,18 @@ app.get('/api/actor/name/:name', (req, res) => {
 app.get('/api/actor/id/:actorId/movies', (req, res) => {
     console.log(`Request for movies of an actor by id:${req.params.actorId}`)
     var id = mongoose.Types.ObjectId(req.params.actorId);
-    actorModel.findById(id, (err, data) => {
+    actorModel.findById(id).lean().exec((err, data) => {
         if (err) {
             res.send(err);
             return;
         }
-        var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
+        var observables = data.movies.map(m => { return movieModel.findById(mongoose.Types.ObjectId(m), (err, d) => d); });
         rxjs.forkJoin(observables).subscribe(movieModels => {
             res.send(movieModels);
         })
     })
 });
-// app.get('/api/actor/id/:actorId/data', (req, res) => {
-//     console.log(`Request for actor data by id:${req.params.actorId}`)
-//     var id = mongoose.Types.ObjectId(req.params.actorId);
-//     actorModel.findById(id, (err, data) => {
-//         if (err) {
-//             res.send(err);
-//             return;
-//         }
-//         var observables = data.movies.map(m => { return movieModel.findById(m, (err, d) => d); });
-//         rxjs.forkJoin(observables).subscribe(movieModels => {
-//             var result = {
-//                 _id: data._id,
-//                 name: data.name,
-//                 movies: data.movies,
-//                 birth: data.birth,
-//                 movieData: movieModels,
-//                 total_rating: data.total_rating,
-//                 total_revenue: data.total_revenue,
-//             }
-//             res.send(result);
-//         })
-//     })
-// });
+
 app.post('/api/actor/moviecount/', (req, res) => {
     console.log(`Request(POST) for multiple actors by id`)
     var observables = [];
@@ -154,7 +132,7 @@ app.post('/api/actor/moviecount/', (req, res) => {
 
 app.get('/api/search/actorname/:name', (req, res) => {
     console.log(`Request for actors matching name:${req.params.name}`)
-    actorModel.find({ name: { "$regex": req.params.name, $options: "i" } }, (err, data) => {
+    actorModel.find({ name: { "$regex": req.params.name, $options: "i" } }).lean().exec((err, data) => {
         if (err) {
             res.send(err);
         } else {
@@ -188,6 +166,40 @@ app.get('/api/search/random/movie/:range', (req, res) => {
 
 })
 
+app.get('/api/actor/id/:actorId/collaborators', (req, res) => {
+    console.log(`Request for actor's collaborators by Id:${req.params.actorId}`)
+    var id = mongoose.Types.ObjectId(req.params.actorId);
+    actorModel.aggregate([
+        { "$match": { "_id": id } },
+        { "$unwind": { "path": "$movies" } },
+        {
+            "$lookup": {
+                "from": "movie",
+                "localField": "movies",
+                "foreignField": "_id",
+                "as": "movie"
+            }
+        },
+        { "$unwind": { "path": "$movie" } },
+        { "$unwind": { "path": "$movie.actors" } },
+        {
+            "$lookup": {
+                "from": "actor",
+                "localField": "movie.actors",
+                "foreignField": "_id",
+                "as": "collab"
+            }
+        },
+        { "$unwind": { "path": "$collab" } },
+        { "$replaceRoot": { "newRoot": "$collab" } }
+    ]).exec((err, data) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(data)
+        }
+    });
+})
 
 
 app.listen(4201, () => { console.log('Listening for requests') });
