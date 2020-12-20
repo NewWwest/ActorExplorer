@@ -2,20 +2,20 @@
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 11.0.2.
 
 ## Tools
->MongoDB
->MongoDB-Tools, for restoring actor dataset dump
->NPM
->Angular CLI (npm install -g @angular/cli)
+* MongoDB
+* MongoDB-Tools, for restoring actor dataset dump
+* NPM
+* Angular CLI (npm install -g @angular/cli)
 
 ## Setup
->Download repo and actor dataset.
->Restore dataset in MongoDB. Use 'ActorExplorer' as database name - if you chose differently remember to change connection string in mongodb-proxy.js.
->Restore npm packages (npm install).
->Run the proxy server (node mongodb-proxy.js).
->Run the angular server (ng serve).
->To run both, with proxy in the backgroud use (node mongodb-proxy.js & ng serve) BUT you will have to kill the proxy on your own.
->Changes in Angular are refresh when you save the file.
->Changes in proxy are refreshed when you restart the app.
+1. Download repo and actor dataset.
+2. Restore dataset in MongoDB. Use 'ActorExplorer' as database name - if you chose differently remember to change connection string in mongodb-proxy.js.
+3. Restore npm packages (npm install).
+4. Run the proxy server (node mongodb-proxy.js).
+5. Run the angular server (ng serve).
+6. To run both, with proxy in the backgroud use (node mongodb-proxy.js & ng serve) BUT you will have to kill the proxy on your own.
+7. Changes in Angular are refresh when you save the file.
+8. Changes in proxy are refreshed when you restart the app.
 
 ## Code scaffolding
 Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
