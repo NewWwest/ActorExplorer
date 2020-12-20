@@ -19,7 +19,7 @@ export class ActorService implements OnInit {
     ngOnInit(): void {
     }
 
-
+    // Deal with the actor selected handlers
     public addActorSelectedHandler(f: any): void {
         this.actorSelectedHandlers.push(f);
     }
@@ -27,7 +27,8 @@ export class ActorService implements OnInit {
         this.executeHandlers(this.actorSelectedHandlers, actor);
     }
 
-
+    // Deal with the actor selection changed handlers, these fire after an actor is selected and relevant data was retrieved
+    // so in some sense it's a "ready" signal after a selection is made
     public addActorSelectionChangedHandler(f: any): void {
         this.actorSelectionChangedhandlers.push(f);
     }
@@ -43,6 +44,7 @@ export class ActorService implements OnInit {
         this.executeHandlers(this.searchForActorHandler, actor);
     }
 
+    // Deal with changes in the time range selector in the movie timeline
     public addTimeRangeHandler(f: any): void {
         this.timeRangeHandlers.push(f);
     }
@@ -50,7 +52,7 @@ export class ActorService implements OnInit {
         this.executeHandlers(this.timeRangeHandlers, minYear, maxYear);
     }
 
-
+    // Deal with visualization reset
     public addResetHandlers(f: any): void {
         this.resetHandlers.push(f);
     }
@@ -58,7 +60,7 @@ export class ActorService implements OnInit {
         this.executeHandlers(this.resetHandlers);
     }
 
-
+    // Deal with showing/hiding the skeleton, only relevant for the node graph
     public addShowOrHideSkeletonHandlers(f: any): void {
         this.showOrHideSkeletonHandlers.push(f);
     }
@@ -66,7 +68,7 @@ export class ActorService implements OnInit {
         this.executeHandlers(this.showOrHideSkeletonHandlers, showSkeleton);
     }
 
-
+    // Executes the handlers that were stored given up to three optional arguments
     private executeHandlers(handlers: any[], arg1?, arg2?, arg3?) {
         handlers.forEach(handler => {
             if (handler && {}.toString.call(handler) === '[object Function]') {

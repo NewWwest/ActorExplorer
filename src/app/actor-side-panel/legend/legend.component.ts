@@ -26,7 +26,11 @@ export class LegendComponent implements OnInit {
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
 
-
+  // Here we perform the join whenever the actor selection changes
+  // The legend items consist of a box indicating the color, and the actor's name
+  // It makes new elements for newly added actors that fly in from the right
+  // Existing elements will move whenever something exits on the left side
+  // Actors that got removed from the selection will fly out and fade away to the left
   syncActors(): void {
     const groups = this.svg.selectAll('g')
       .data(this._actorSelection.getSelectedActors(), (d: Actor) => d._id)
@@ -57,6 +61,7 @@ export class LegendComponent implements OnInit {
       .attr('fill', d => this._actorSelection.getSelectedActorColor(d).formatRgb())
       .attr('stroke', d => this._actorSelection.getSelectedActorColor(d).darker().formatRgb())
       .on("mouseover", (e, d) => d3.select(e.target).attr('fill', this._actorSelection.getSelectedActorColor(d).brighter().formatRgb()))
+      // On click we want to remove the corresponding actor from the selection
       .on("mouseout", (e, d) => d3.select(e.target).attr('fill', this._actorSelection.getSelectedActorColor(d).formatRgb()));
 
     groups.append('text')

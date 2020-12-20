@@ -12,23 +12,25 @@ import { Actor } from 'src/app/models/actor';
   styleUrls: ['./time-slider.component.scss']
 })
 export class TimeSliderComponent implements OnInit {
-  private handleWidth = 6;
+  private handleWidth = 6;  // Width of the range selector handles
   private width = 700;
   private height = 100;
   private xScale;
   private timeSection;
   private leftHandle;
   private rightHandle;
-  private actorRegions: d3.Selection<any, any, any, any>;
+  private actorRegions: d3.Selection<any, any, any, any>; // The rectangles representing actor timelines
   private margin = { top: 40, right: 20, bottom: 10, left: 20 };
-  private rightBound: number = this.width - this.margin.right;
-  private leftBound: number = this.rightBound - 100;
+  private rightBound: number = this.width - this.margin.right;  // Corresponds to the year of the left handle
+  private leftBound: number = this.rightBound - 100;  // Corresponds to the year of the right handle
 
 
   constructor(private _actorRepository: ActorRepository, private _actorService: ActorService, private _actorSelection: ActorSelection) { }
 
   ngOnInit(): void {
     const svg = d3.select('p#slider').append('svg')
+      // We use viewbox to automatically let the elements adjust to all the space available
+      // The width/height can be used to fix the aspect ratio
       .attr('viewBox', `0 0 ${this.width + this.margin.left + this.margin.right} ${this.height + this.margin.top + this.margin.bottom}`);
 
     const endHandler = () => {
@@ -38,7 +40,10 @@ export class TimeSliderComponent implements OnInit {
       );
     };
 
-
+    // Getting all the movies takes some time, so it takes a while before this appears
+    // One potential improvement could be to store the min/max year in a separate collection in the data
+    // and pre-initialize the axis and other elements, or pre-calculating the bins on the db side and
+    // retrieving that instead.
     this._actorRepository.getAllMovies().subscribe(movies => {
       const min = d3.min(movies, m => m.year);
       const max = d3.max(movies, m => m.year);
@@ -61,12 +66,14 @@ export class TimeSliderComponent implements OnInit {
         .attr('shape-rendering', 'geometricPrecision ')
         .call(d3.axisBottom(this.xScale).tickFormat(d3.format('d')));
 
+      // X label
       xElement.append('text')
         .text("Movies Over the Years")
         .attr('fill', 'black')
         .attr('transform', `translate(${this.width/2}, ${30})scale(1.2,1.2)`)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central');
+      // The bins
       svg
         .append('g')
         .selectAll('rect')
@@ -140,11 +147,16 @@ export class TimeSliderComponent implements OnInit {
       this.updateBody();
       this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
 
+      // We actually trigger the handler every 100 ms, which allows the other listening components to update dynamically
+      // regardless of what happens. This also means that it updates when nothing is happening at all, so there is that downside.
       d3.interval(endHandler, 100);
     });
-
   }
 
+  // This is just to synchronize the actor timelines
+  // Upon enter, a new timeline flies in from the bottom for each newly selected actor
+  // If some actor is no longer in the selection, his timeline will fly out from the top and fade
+  // Timelines of the other actors need to move up as well then, so that gets handled in the update
   syncActors(): void {
     this.actorRegions.selectAll('rect')
     .data(this._actorSelection.getSelectedActors(), (actor: Actor) => actor._id)
@@ -178,24 +190,29 @@ export class TimeSliderComponent implements OnInit {
     );
   }
 
+  // Updates the range selector's body based on the bounds
   updateBody(): void {
     this.timeSection.attr('width', this.rightBound - this.leftBound);
     this.timeSection.attr('x', this.leftBound + this.handleWidth / 2);
   }
 
+  // Whether the left bound is allowed to move further
   canMoveLeftBound(value: number): boolean {
     return value >= this.margin.left && value <= this.rightBound - this.handleWidth;
   }
 
+  // Whether the right bound is allowed to move further
   canMoveRightBound(value: number): boolean {
     return value >= this.leftBound + this.handleWidth && value <= this.width - this.margin.right;
   }
 
+  // Change the left bound and update its corresponding handle element
   moveLeftBound(value: number): void {
     this.leftBound = value;
     this.leftHandle.attr('x', this.leftBound);
   }
 
+  // Change the right bound and update its corresponding handle element
   moveRightBound(value: number): void {
     this.rightBound = value;
     this.rightHandle.attr('x', this.rightBound);

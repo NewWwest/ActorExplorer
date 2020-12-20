@@ -23,14 +23,16 @@ export class RadarChartComponent implements OnInit {
   private margin = { top: 40, right: 120, bottom: 80, left: 120 };
   private skeleton: d3.Selection<any, any, any, any>;
   private radarChart: d3.Selection<any, any, any, any>;
-  private axes: Axis<number, number>[] = [];
-  private gridCount = 5;
-
+  private axes: Axis<number, number>[] = []; // Length indicates the number of axes in the radar chart
+  private gridCount = 5;  // Indicates the amount of grid lines in the web of the radar chart
+  private cache: Map<Actor, ActorMetrics> = new Map<Actor, ActorMetrics>(); // Acts like a cache for actor metrics, a bit redundant with the new aggregate mongo call
 
   ngOnInit(): void {
     const fullWidth = this.width + this.margin.left + this.margin.right;
     const fullHeight = this.height + this.margin.top + this.margin.bottom;
     const armLength = Math.min(this.width, this.height) / 2;
+
+    // These are the axes we will add for our metrics
 
     // - Q: Is the actor a solo star?
     //   A: Portion of movies where actor has highest total revenue of cast
@@ -86,6 +88,7 @@ export class RadarChartComponent implements OnInit {
       .selectAll('g.tick')
       .each((_, j, tickNodes) => {
         const tickNode = d3.select(tickNodes[j]);
+        // Remove first label
         if (j==0) {
           tickNode.remove();
         } else {
@@ -94,10 +97,12 @@ export class RadarChartComponent implements OnInit {
             .attr('dominant-baseline', 'bottom')
         }
       })
+
       d3.select(nodes[i])
         .append("text")
         .text(this.axes[i].label)
         .attr('fill', 'black')
+        // Need to make sure the labels are straight so they are readable, so we rotate them back
         .attr('transform', `translate(0,${1.2 * armLength})rotate(-${i * 360 / axisCount})scale(1.5,1.5)`)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'hanging')
@@ -124,7 +129,8 @@ export class RadarChartComponent implements OnInit {
     this._actorService.addActorSelectionChangedHandler(this.syncActors.bind(this));
   }
 
-    // Convenience method for metric calculation
+    // Convenience method for metric calculation, it returns the object belonging to 
+    // the maximum value according to an accessor function, much like key keyword argument in Python's max function
     private maxObject<T>(arr: T[], accessor: (t: T) => number): T {
       let obj: T = null;
       let val = Number.NEGATIVE_INFINITY;
@@ -138,8 +144,9 @@ export class RadarChartComponent implements OnInit {
       return obj;
     }
 
-  private cache: Map<Actor, ActorMetrics> = new Map<Actor, ActorMetrics>();
-
+  
+    // Here we synchronize the chart when the actor selection changes
+    // Initially we just retrieve the data, upon which we will synchronize the graphs themselves
     syncActors(): void {
 
       if (this._actorSelection.getSelectedActors().length == 0) {
@@ -149,7 +156,7 @@ export class RadarChartComponent implements OnInit {
       forkJoin(this._actorSelection.getSelectedActors().filter(actor => !this.cache.has(actor)).map(actor => {
         const actorMovies = this._actorSelection.getSelectedActorMovies(actor);
         return this._actorRepository.getCollaboratorsById(actor._id).pipe(map(collaborators => {
-          const metrics = { actor, metrics: this.calculateMetrics2(actor, actorMovies, collaborators) } as ActorMetrics;
+          const metrics = { actor, metrics: this.calculateMetrics(actor, actorMovies, collaborators) } as ActorMetrics;
           return metrics;
         }));
       })).subscribe(data => {
@@ -164,11 +171,15 @@ export class RadarChartComponent implements OnInit {
       });
     }
 
+  // The radar chart consists of some area graphs, where every point in the graph represents a value for some metric
+  // Every actor receives such an area graph, so we just have to make them fade in/out nicely upon enter/exit
+  // The update operation doesn't require anything special in this case, but it would if we would do any axis rescaling
   syncGraphs(data: ActorMetrics[]): void {
     const fullWidth = this.width + this.margin.left + this.margin.right;
     const fullHeight = this.height + this.margin.top + this.margin.bottom;
     const axisCount = this.axes.length;
 
+    // Basically we need to rotate the points according to their metric index
     const areaPlot = d3.area<number>()
       .x0(0)
       .x1((d, i) => d3.pointRadial(i * 2 * Math.PI / axisCount, this.axes[i].scale(d))[0])
@@ -176,7 +187,7 @@ export class RadarChartComponent implements OnInit {
       .y0(0)
       .curve(d3.curveLinearClosed);
 
-    // Use groups to fade the area to keep the code readable
+    // Use groups to fade the area graph in order to keep the code readable
     this.radarChart.selectAll('path.data')
       .data(data, (d: ActorMetrics) => d.actor._id)
       .join(
@@ -194,7 +205,10 @@ export class RadarChartComponent implements OnInit {
       .attr('transform', `translate(${fullWidth / 2},${fullHeight / 2}) rotate(180)`);
   }
 
-  calculateMetrics2(actor: Actor, actorMovies: Movie[], collaborators: Actor[]): number[] {
+  // Here we calculate the five metrics, they are more thoroughly described in the initialization method
+  // where we add the proper axes for them. This part could be refactored a bit by allowing one to add a metric
+  // calculation function for each axis, and have a function for every metric/axis, which would make this chart fully modular.
+  calculateMetrics(actor: Actor, actorMovies: Movie[], collaborators: Actor[]): number[] {
     const collaboratorCounts: Map<string, number> = new Map<string, number>();
     const collaboratorsMap: Map<string, Actor> = new Map<string, Actor>();
 
@@ -217,11 +231,11 @@ export class RadarChartComponent implements OnInit {
     const collabSame = Array.from(collaboratorCounts.values())
       .reduce((a, b) => a + b) / collaboratorCounts.size;
 
-    // M3 (never seems to change..?)
+    // M3 (never seems to change, artifact in data)
     const avgMovieCastSize = actorMovies.map(movie => movie.actors.length)
       .reduce((a, b) => a + b) / actorMovies.length;
 
-    // M4 (revenue instead of vote average seems to work better)
+    // M4 (revenue instead of vote average seems to work better in terms of variation)
     const collabAvgRevenue = collaborators
       .map(collaborator => collaborator.total_revenue / collaborator.movies.length)
       .reduce((a, b) => a + b) / collaborators.length;
@@ -235,13 +249,16 @@ export class RadarChartComponent implements OnInit {
     return values;
   }
 }
+
+// Interface that we use to store the actor metrics
 interface ActorMetrics {
   actor: Actor,
-  metrics: number[];
+  metrics: number[];  // Should be equal to the number of axes
 }
 
+// Over-arching interface to represent an axis of this chart
 interface Axis<Range, Output> {
-  label: string,
-  scale: d3.ScaleLinear<Range, Output>,
-  tickFormat: (value: NumberValue, index: number) => string;
+  label: string,  // Name of the axis label
+  scale: d3.ScaleLinear<Range, Output>,  // The associated d3 scale for the axis
+  tickFormat: (value: NumberValue, index: number) => string;  // The tick format function
 }
