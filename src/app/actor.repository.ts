@@ -13,7 +13,7 @@ export class ActorRepository {
     private getActorByIdcache: Map<string, Actor> = new Map<string, Actor>();
 
     constructor(private _http: HttpClient) { }
-    private proxy_url: string = 'http://localhost:4201'
+    private proxyUrl: string = 'http://localhost:4201'
 
     // Gets a random movie in the given year range
     getRandomMovieInRange(startYear: number, endYear: number): Observable<Movie[]> {
