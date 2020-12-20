@@ -1,3 +1,44 @@
+<div class="radio-button-container">
+    <div>
+        <mat-radio-group [(ngModel)]="colorType" (change)="changeColors($event)">
+            <div class="radio-button-group">Data values:</div>
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.revenueTotal">
+                Total revenue
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.revenueAverage">
+                Average revenue
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.voteAverage">
+                Average rating
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="ColorDataEnum.none">
+                None
+            </mat-radio-button>
+        </mat-radio-group>
+    </div>
+    <div>
+        <mat-radio-group [(ngModel)]="colorSchema" (change)="changeColors($event)">
+            <div class="radio-button-group">Color schema:</div>
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.viridis">
+                Viridis
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.magma">
+                Magma
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.plasma">
+                Plasma
+            </mat-radio-button>
+            <mat-radio-button class="radio-button" [value]="colorSchemaEnum.heatmap">
+                Heatmap
+            </mat-radio-button>
+        </mat-radio-group>
+    </div>
+    <div id="color-legend-container">
+        <svg class="color-legend-svg">
+        </svg>
+    </div>
+</div>
+
 <div id="graph-container">
     <svg class="graph-svg">
     </svg>

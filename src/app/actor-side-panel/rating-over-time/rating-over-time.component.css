@@ -24,18 +24,3 @@
     word-wrap: break-word;
     opacity: 0;
 }
-
-.radio-button-container {
-    position: absolute;
-    left: 0px;
-    top: 0px;
-}
-
-.radio-button-group {
-    width: 110px;
-    display: inline-block;
-}
-
-.radio-button {
-    width: 150px;
-}

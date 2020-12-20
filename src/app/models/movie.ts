@@ -6,5 +6,7 @@ export interface Movie {
     revenue: number;
     vote_average: number;
     year: number;
+    month: number;
+    day: number;
     actors: string[];
 }
